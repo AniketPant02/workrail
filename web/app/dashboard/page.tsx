@@ -14,16 +14,6 @@ export default function DashboardPage() {
     }
   }, [isPending, session, error, router]);
 
-  const onSignOut = async () => {
-    await authClient.signOut({
-      fetchOptions: {
-        onSuccess: () => {
-          router.push("/sign-in");
-        },
-      },
-    });
-  };
-
   if (isPending) {
     return (
       <main>
@@ -36,15 +26,13 @@ export default function DashboardPage() {
     return null;
   }
 
-  const displayName =
-    session.user.name || session.user.email || "User";
-
   return (
-    <main>
-      <p>{displayName}</p>
-      <button type="button" onClick={onSignOut}>
-        Sign out
-      </button>
-    </main>
+    <div className="space-y-8">
+      <section>
+        <p>Create new task... populate in SQL</p>
+
+        <p>List of tasks here using some elegant card-like list... populated via SQL</p>
+      </section>
+    </div>
   );
 }
