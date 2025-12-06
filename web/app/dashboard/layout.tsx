@@ -19,7 +19,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     <SidebarProvider>
       <WorkrailSidebar />
       <SidebarInset>
-        <div className="flex h-full w-full flex-col">
+        <div className="flex min-h-screen w-full flex-col">
           <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4">
             <SidebarTrigger className="text-muted-foreground" />
             <Separator
@@ -28,8 +28,8 @@ export default function Layout({ children }: { children: ReactNode }) {
             />
             <DashboardBreadcrumb />
           </header>
-          <div className="flex flex-1 flex-col gap-4 lg:flex-row lg:gap-0">
-            <section className="flex-1 px-4 py-6">{children}</section>
+          <div className="flex flex-1 min-h-0 flex-col gap-4 lg:flex-row lg:gap-0">
+            <section className="flex-1 min-h-0">{children}</section>
             <aside className="border-t px-4 py-6 lg:w-80 lg:border-l lg:border-t-0">
               <h2 className="text-sm font-semibold tracking-tight">
                 Timeline

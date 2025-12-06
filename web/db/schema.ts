@@ -1,5 +1,13 @@
 import { relations } from "drizzle-orm";
-import { pgTable, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  timestamp,
+  boolean,
+  index,
+  integer,
+  pgEnum,
+} from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -73,9 +81,86 @@ export const verification = pgTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
+export const taskStatusEnum = pgEnum("task_status", [
+  "todo",
+  "in_progress",
+  "done",
+]);
+
+export const taskPriorityEnum = pgEnum("task_priority", [
+  "low",
+  "medium",
+  "high",
+  "urgent"
+]);
+
+// Folders: name, timestamps, userId only
+export const folder = pgTable(
+  "folder",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("folder_userId_idx").on(table.userId),
+    index("folder_userId_name_idx").on(table.userId, table.name),
+  ],
+);
+
+// Tasks: title, description, status, dueDate, folderId, priority, start/end datetime
+export const task = pgTable(
+  "task",
+  {
+    id: text("id").primaryKey(),
+
+    title: text("title").notNull(),
+    description: text("description"),
+
+    status: taskStatusEnum("status").notNull().default("todo"),
+    priority: taskPriorityEnum("priority").notNull().default("medium"),
+
+    dueDate: timestamp("due_date"),
+    startAt: timestamp("start_at"),
+    endAt: timestamp("end_at"),
+
+    folderId: text("folder_id").references(() => folder.id, {
+      onDelete: "set null",
+    }),
+
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("task_userId_idx").on(table.userId),
+    index("task_folderId_idx").on(table.folderId),
+    index("task_userId_status_idx").on(table.userId, table.status),
+    index("task_userId_dueDate_idx").on(table.userId, table.dueDate),
+    index("task_userId_priority_idx").on(table.userId, table.priority),
+  ],
+);
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
+  tasks: many(task),
+  folders: many(folder),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -89,5 +174,24 @@ export const accountRelations = relations(account, ({ one }) => ({
   user: one(user, {
     fields: [account.userId],
     references: [user.id],
+  }),
+}));
+
+export const folderRelations = relations(folder, ({ one, many }) => ({
+  user: one(user, {
+    fields: [folder.userId],
+    references: [user.id],
+  }),
+  tasks: many(task),
+}));
+
+export const taskRelations = relations(task, ({ one }) => ({
+  user: one(user, {
+    fields: [task.userId],
+    references: [user.id],
+  }),
+  folder: one(folder, {
+    fields: [task.folderId],
+    references: [folder.id],
   }),
 }));

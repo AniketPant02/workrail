@@ -48,7 +48,7 @@ export function DashboardBreadcrumb() {
     const label = getDashboardLabel(pathname);
 
     return (
-        <Breadcrumb className="flex-1">
+        <Breadcrumb className="flex-1 text-lg font-semibold">
             <BreadcrumbList>
                 <BreadcrumbItem>
                     <BreadcrumbPage>{label}</BreadcrumbPage>

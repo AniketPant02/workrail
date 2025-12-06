@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 
+import TaskCenter from "@/components/tasks/task-center";
+
 export default function DashboardPage() {
   const router = useRouter();
   const { data: session, isPending, error } = authClient.useSession();
@@ -27,12 +29,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <section>
-        <p>Create new task... populate in SQL</p>
-
-        <p>List of tasks here using some elegant card-like list... populated via SQL</p>
-      </section>
-    </div>
+    <>
+      <TaskCenter />
+    </>
   );
 }
