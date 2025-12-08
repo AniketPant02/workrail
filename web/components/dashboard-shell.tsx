@@ -1,0 +1,132 @@
+"use client"
+
+import { ReactNode, useCallback, useMemo, useState } from "react"
+import useSWR, { useSWRConfig } from "swr"
+import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core"
+import type { Task } from "@/lib/types"
+import { Separator } from "@/components/ui/separator"
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar"
+import { WorkrailSidebar } from "@/components/app-sidebar"
+import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb"
+import { HourlyTimeline } from "@/components/timeline/hourly-timeline"
+import { authClient } from "@/lib/auth-client"
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json())
+
+interface DashboardShellProps {
+  children: ReactNode
+}
+
+export function DashboardShell({ children }: DashboardShellProps) {
+  const { data: session } = authClient.useSession()
+  const { mutate } = useSWRConfig()
+  const tasksKey = session?.user ? "/api/tasks" : null
+  const { data: tasksResponse } = useSWR(tasksKey, fetcher)
+  const tasks: Task[] = useMemo(() => tasksResponse?.data ?? [], [tasksResponse])
+  const [activeTask, setActiveTask] = useState<Task | null>(null)
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const data = event.active.data?.current as Record<string, unknown> | undefined
+    const type = data?.type as string | undefined
+    if (type === "task" && data?.task) {
+      setActiveTask(data.task as Task)
+    } else {
+      setActiveTask(null)
+    }
+  }, [])
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    setActiveTask(null)
+  }, [])
+
+  const handleDragCancel = useCallback(() => {
+    setActiveTask(null)
+  }, [])
+
+  const handleTaskTimeChange = useCallback(
+    async (task: Task, startAt: Date, endAt: Date) => {
+      if (!tasksKey) return
+
+      const payload = { startAt: startAt.toISOString(), endAt: endAt.toISOString() }
+
+      await mutate(
+        tasksKey,
+        async (current: any) => {
+          const res = await fetch(`/api/tasks/${task.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+
+          if (!res.ok) {
+            throw new Error("Failed to update task time")
+          }
+
+          const json = await res.json().catch(() => null)
+          const updatedTask = json?.data ?? { ...task, ...payload }
+
+          if (current?.data) {
+            return {
+              ...current,
+              data: current.data.map((t: Task) => (t.id === task.id ? updatedTask : t)),
+            }
+          }
+
+          return { data: [updatedTask] }
+        },
+        {
+          optimisticData: (current: any) => {
+            const baseList: Task[] = current?.data ?? tasks
+            const hasExisting = baseList.some((t) => t.id === task.id)
+            const updatedList = hasExisting
+              ? baseList.map((t) => (t.id === task.id ? { ...t, ...payload } : t))
+              : [...baseList, { ...task, ...payload }]
+
+            return current ? { ...current, data: updatedList } : { data: updatedList }
+          },
+          rollbackOnError: true,
+          revalidate: true,
+        },
+      )
+    },
+    [mutate, tasks, tasksKey],
+  )
+
+  return (
+    <SidebarProvider>
+      <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
+        <WorkrailSidebar />
+        <SidebarInset>
+          <div className="flex h-screen w-full flex-col overflow-hidden">
+            <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4">
+              <SidebarTrigger className="text-muted-foreground" />
+              <Separator
+                orientation="vertical"
+                className="h-6 bg-border"
+              />
+              <DashboardBreadcrumb />
+            </header>
+            <div className="flex flex-1 min-h-0 flex-row gap-4 lg:gap-0">
+              <section className="flex-1 min-h-0 flex flex-col overflow-hidden">{children}</section>
+              <aside className="border-t lg:w-80 lg:border-l lg:border-t-0 flex flex-col min-h-0 h-full overflow-hidden">
+                <HourlyTimeline tasks={tasks} onTaskTimeChange={handleTaskTimeChange} />
+              </aside>
+            </div>
+          </div>
+        </SidebarInset>
+        <DragOverlay>
+          {activeTask ? (
+            <div className="rounded-lg border bg-card px-3 py-2 shadow-lg">
+              <p className="text-sm font-medium">{activeTask.title}</p>
+              <p className="text-xs text-muted-foreground">Drag to timeline</p>
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+    </SidebarProvider>
+  )
+}

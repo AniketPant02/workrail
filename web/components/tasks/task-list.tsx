@@ -3,6 +3,7 @@
 import type React from "react"
 
 import type { Task } from "@/lib/types"
+import { useDraggable } from "@dnd-kit/core"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { AlertCircle, CheckCircle2, Circle, Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -37,6 +38,67 @@ const formatDueDate = (date: Date) => {
     if (diffDays <= 7) return `${diffDays}d`
 
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
+interface TaskListItemProps {
+    task: Task
+    selected: boolean
+    onSelect: (taskId: string) => void
+}
+
+function TaskListItem({ task, selected, onSelect }: TaskListItemProps) {
+    const PriorityIcon = priorityIcons[task.priority]?.icon || Circle
+    const priorityColor = priorityIcons[task.priority]?.color || "text-slate-400"
+    const parsedDueDate = task.dueDate ? new Date(task.dueDate) : null
+    const hasValidDueDate = parsedDueDate && !isNaN(parsedDueDate.getTime())
+    const dueDateLabel = hasValidDueDate ? formatDueDate(parsedDueDate) : "No due date"
+
+    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+        id: `task-${task.id}`,
+        data: { type: "task", task },
+        activationConstraint: { distance: 6 },
+    })
+
+    return (
+        <button
+            ref={setNodeRef}
+            style={isDragging ? { opacity: 0.7 } : undefined}
+            onClick={() => onSelect(task.id)}
+            className={cn(
+                "w-full rounded-lg border p-3 text-left transition-colors",
+                "hover:bg-accent hover:border-accent",
+                selected ? "border-primary bg-primary/5" : "border-border bg-card",
+            )}
+        >
+            <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium leading-tight truncate">{task.title}</p>
+                    <div className="flex items-center gap-2 mt-1.5">
+                        <span className="text-xs text-muted-foreground">{dueDateLabel}</span>
+                    </div>
+                </div>
+                <div className="flex items-center gap-1">
+                    <PriorityIcon className={cn("h-4 w-4 shrink-0 mt-0.5", priorityColor)} />
+                    <div
+                        className="ml-2 flex h-6 w-6 items-center justify-center rounded-md border border-border bg-muted/60 text-muted-foreground cursor-grab active:cursor-grabbing"
+                        {...attributes}
+                        {...listeners}
+                        onClick={(e) => e.stopPropagation()}
+                        title="Drag to timeline"
+                    >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="8" cy="6" r="1" />
+                            <circle cx="8" cy="12" r="1" />
+                            <circle cx="8" cy="18" r="1" />
+                            <circle cx="16" cy="6" r="1" />
+                            <circle cx="16" cy="12" r="1" />
+                            <circle cx="16" cy="18" r="1" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </button>
+    )
 }
 
 export default function TaskList({
@@ -79,32 +141,13 @@ export default function TaskList({
                         <p className="text-xs text-muted-foreground p-2 text-center">No tasks yet</p>
                     ) : (
                         tasks.map((task) => {
-                            const PriorityIcon = priorityIcons[task.priority]?.icon || Circle
-                            const priorityColor = priorityIcons[task.priority]?.color || "text-slate-400"
-                            const parsedDueDate = task.dueDate ? new Date(task.dueDate) : null
-                            const hasValidDueDate = parsedDueDate && !isNaN(parsedDueDate.getTime())
-                            const dueDateLabel = hasValidDueDate ? formatDueDate(parsedDueDate) : "No due date"
-
                             return (
-                                <button
+                                <TaskListItem
                                     key={task.id}
-                                    onClick={() => onSelectTask(task.id)}
-                                    className={cn(
-                                        "w-full rounded-lg border p-3 text-left transition-colors",
-                                        "hover:bg-accent hover:border-accent",
-                                        selectedTaskId === task.id ? "border-primary bg-primary/5" : "border-border bg-card",
-                                    )}
-                                >
-                                    <div className="flex items-start justify-between gap-2">
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium leading-tight truncate">{task.title}</p>
-                                            <div className="flex items-center gap-2 mt-1.5">
-                                                <span className="text-xs text-muted-foreground">{dueDateLabel}</span>
-                                            </div>
-                                        </div>
-                                        <PriorityIcon className={cn("h-4 w-4 shrink-0 mt-0.5", priorityColor)} />
-                                    </div>
-                                </button>
+                                    task={task}
+                                    selected={selectedTaskId === task.id}
+                                    onSelect={onSelectTask}
+                                />
                             )
                         })
                     )}
