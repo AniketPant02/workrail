@@ -188,3 +188,37 @@
     letter-spacing: var(--tracking-normal);
   }
 }
+
+@layer components {
+  .rich-text-editor .tiptap {
+    @apply min-h-[160px] text-sm leading-6 text-foreground;
+  }
+
+  .rich-text-editor .tiptap p {
+    @apply my-3;
+  }
+
+  .rich-text-editor .tiptap p:first-child {
+    @apply mt-1;
+  }
+
+  .rich-text-editor .tiptap ul {
+    @apply my-3 list-disc space-y-1 pl-5;
+  }
+
+  .rich-text-editor .tiptap ol {
+    @apply my-3 list-decimal space-y-1 pl-5;
+  }
+
+  .rich-text-editor .tiptap blockquote {
+    @apply my-3 border-l-2 border-border pl-3 italic text-muted-foreground;
+  }
+
+  .rich-text-editor .tiptap .is-editor-empty:first-child::before {
+    color: var(--muted-foreground);
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+  }
+}

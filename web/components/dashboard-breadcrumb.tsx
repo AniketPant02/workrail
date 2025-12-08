@@ -1,6 +1,8 @@
 "use client";
 
+import { useMemo } from "react";
 import { usePathname } from "next/navigation";
+import useSWR from "swr";
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -8,7 +10,14 @@ import {
     BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
 
-function getDashboardLabel(pathname: string | null): string {
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
+type Folder = {
+    id: string;
+    name: string;
+};
+
+function getDashboardLabel(pathname: string | null, folderName?: string, foldersLoading?: boolean): string {
     if (!pathname) return "Dashboard";
 
     // Strip query/hash and trailing slash
@@ -25,18 +34,11 @@ function getDashboardLabel(pathname: string | null): string {
         return "Due soon";
     }
 
-    // Handle /dashboard/{folderName}
+    // Handle /dashboard/{folderID}
     if (clean.startsWith("/dashboard/")) {
-        const segments = clean.split("/");
-        const slug = segments[segments.length - 1];
-
-        // decodeURIComponent because you used encodeURI / encodeURIComponent
-        try {
-            return decodeURIComponent(slug);
-        } catch {
-            // if decoding fails for some reason, just show the raw slug
-            return slug;
-        }
+        if (foldersLoading) return "Loading…";
+        if (folderName) return folderName;
+        return "Folder";
     }
 
     // Fallback
@@ -45,7 +47,43 @@ function getDashboardLabel(pathname: string | null): string {
 
 export function DashboardBreadcrumb() {
     const pathname = usePathname();
-    const label = getDashboardLabel(pathname);
+
+    // Attempt to read folderId from the path: /dashboard/[folderID]
+    const { folderId, cleanPath } = useMemo(() => {
+        if (!pathname) return { folderId: null as string | null, cleanPath: null as string | null };
+
+        // Mirror the cleaning logic in getDashboardLabel
+        let clean = pathname.split("?")[0].split("#")[0];
+        if (clean.endsWith("/") && clean !== "/") {
+            clean = clean.slice(0, -1);
+        }
+
+        // Exclude known non-folder dashboard paths
+        if (clean === "/dashboard" || clean === "/dashboard/due-soon") {
+            return { folderId: null, cleanPath: clean };
+        }
+
+        if (clean.startsWith("/dashboard/")) {
+            const slug = clean.split("/")[2];
+            try {
+                return { folderId: decodeURIComponent(slug), cleanPath: clean };
+            } catch {
+                return { folderId: slug, cleanPath: clean };
+            }
+        }
+
+        return { folderId: null, cleanPath: clean };
+    }, [pathname]);
+
+    const { data: foldersResponse, isLoading: foldersLoading } = useSWR(folderId ? "/api/folders" : null, fetcher);
+    const folders: Folder[] = foldersResponse?.data ?? [];
+
+    const folderName = useMemo(() => {
+        if (!folderId) return undefined;
+        return folders.find((f) => f.id === folderId)?.name;
+    }, [folderId, folders]);
+
+    const label = getDashboardLabel(cleanPath, folderName, foldersLoading);
 
     return (
         <Breadcrumb className="flex-1 text-lg font-semibold">

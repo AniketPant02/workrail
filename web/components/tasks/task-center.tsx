@@ -6,12 +6,28 @@ import { authClient } from "@/lib/auth-client"
 import type { Task } from "@/lib/types"
 import TaskList from "@/components/tasks/task-list"
 import TaskEditor from "@/components/tasks/task-editor"
+import { useParams, usePathname } from "next/navigation"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 export default function TaskCenter() {
   const { data: session, error: sessionError } = authClient.useSession()
-  const { data: tasksResponse, mutate } = useSWR(session?.user ? "/api/tasks" : null, fetcher)
+  const params = useParams<{ folderID?: string }>()
+  const pathname = usePathname()
+  const folderParam = params?.folderID
+  const folderId = typeof folderParam === "string" ? folderParam : Array.isArray(folderParam) ? folderParam[0] : undefined
+  const isDueSoon = pathname?.startsWith("/dashboard/due-soon")
+
+  const tasksKey = useMemo(() => {
+    if (!session?.user) return null
+    const search = new URLSearchParams()
+    if (folderId) search.set("folderId", folderId)
+    if (isDueSoon) search.set("dueSoon", "true")
+    const qs = search.toString()
+    return qs ? `/api/tasks?${qs}` : "/api/tasks"
+  }, [folderId, isDueSoon, session?.user])
+
+  const { data: tasksResponse, mutate } = useSWR(tasksKey, fetcher)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [draftTask, setDraftTask] = useState<Task | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -32,10 +48,15 @@ export default function TaskCenter() {
   const handleCreateTask = async (title: string) => {
     setIsCreating(true)
     try {
+      const payload: Record<string, unknown> = { title }
+      if (folderId) {
+        payload.folderId = folderId
+      }
+
       const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title }),
+        body: JSON.stringify(payload),
       })
 
       if (!res.ok) {

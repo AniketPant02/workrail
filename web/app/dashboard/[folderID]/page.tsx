@@ -1,9 +1,36 @@
-export default async function FolderDashboard({
-    params,
-}: {
-    params: { folderID: string }
-}) {
-    const { folderID } = await params;
+"use client";
 
-    return <div>{folderID}</div>
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { authClient } from "@/lib/auth-client";
+
+import TaskCenter from "@/components/tasks/task-center";
+
+export default function FolderDashboardPage() {
+    const router = useRouter();
+    const { data: session, isPending, error } = authClient.useSession();
+
+    useEffect(() => {
+        if (!isPending && (!session?.user || error)) {
+            router.replace("/sign-in");
+        }
+    }, [isPending, session, error, router]);
+
+    if (isPending) {
+        return (
+            <main>
+                <p>Loading…</p>
+            </main>
+        );
+    }
+
+    if (!session?.user) {
+        return null;
+    }
+
+    return (
+        <>
+            <TaskCenter />
+        </>
+    );
 }

@@ -1,13 +1,14 @@
 "use client"
 
 import type React from "react"
+import { useMemo, useState } from "react"
+import useSWR from "swr"
 
 import type { Task } from "@/lib/types"
 import { useDraggable } from "@dnd-kit/core"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { AlertCircle, CheckCircle2, Circle, Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useState } from "react"
 
 interface TaskListProps {
     tasks: Task[]
@@ -22,6 +23,13 @@ const priorityIcons = {
     medium: { icon: CheckCircle2, color: "text-yellow-600" },
     high: { icon: AlertCircle, color: "text-orange-600" },
     urgent: { icon: Zap, color: "text-red-600" },
+}
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json())
+
+type Folder = {
+    id: string
+    name: string
 }
 
 const formatDueDate = (date: Date) => {
@@ -44,14 +52,17 @@ interface TaskListItemProps {
     task: Task
     selected: boolean
     onSelect: (taskId: string) => void
+    folderName?: string
 }
 
-function TaskListItem({ task, selected, onSelect }: TaskListItemProps) {
+function TaskListItem({ task, selected, onSelect, folderName }: TaskListItemProps) {
     const PriorityIcon = priorityIcons[task.priority]?.icon || Circle
     const priorityColor = priorityIcons[task.priority]?.color || "text-slate-400"
     const parsedDueDate = task.dueDate ? new Date(task.dueDate) : null
     const hasValidDueDate = parsedDueDate && !isNaN(parsedDueDate.getTime())
     const dueDateLabel = hasValidDueDate ? formatDueDate(parsedDueDate) : "No due date"
+    const showFolder = task.folderId !== null
+    const folderLabel = folderName ?? task.folderId ?? "Folder"
 
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
         id: `task-${task.id}`,
@@ -74,6 +85,11 @@ function TaskListItem({ task, selected, onSelect }: TaskListItemProps) {
                 <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium leading-tight truncate">{task.title}</p>
                     <div className="flex items-center gap-2 mt-1.5">
+                        {showFolder && (
+                            <span className="inline-flex max-w-[160px] items-center rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground truncate">
+                                {folderLabel}
+                            </span>
+                        )}
                         <span className="text-xs text-muted-foreground">{dueDateLabel}</span>
                     </div>
                 </div>
@@ -109,6 +125,9 @@ export default function TaskList({
     isCreating,
 }: TaskListProps) {
     const [newTaskTitle, setNewTaskTitle] = useState("")
+    const { data: foldersResponse } = useSWR("/api/folders", fetcher)
+    const folders: Folder[] = foldersResponse?.data ?? []
+    const folderMap = useMemo(() => new Map(folders.map((f) => [f.id, f.name])), [folders])
 
     const handleCreateTask = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "Enter" && newTaskTitle.trim()) {
@@ -141,12 +160,14 @@ export default function TaskList({
                         <p className="text-xs text-muted-foreground p-2 text-center">No tasks yet</p>
                     ) : (
                         tasks.map((task) => {
+                            const folderName = task.folderId ? folderMap.get(task.folderId) : undefined
                             return (
                                 <TaskListItem
                                     key={task.id}
                                     task={task}
                                     selected={selectedTaskId === task.id}
                                     onSelect={onSelectTask}
+                                    folderName={folderName}
                                 />
                             )
                         })

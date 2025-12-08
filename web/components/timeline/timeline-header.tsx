@@ -20,24 +20,24 @@ export function TimelineHeader({ date, onPrevDay, onNextDay, onToday }: Timeline
     const isToday = date.toDateString() === new Date().toDateString()
 
     return (
-        <div className="border-b border-border bg-card p-4">
-            <div className="flex items-center justify-between gap-3">
-                <h1 className="text font-semibold text-foreground">{formatDate(date)}</h1>
-                <div className="flex gap-2 items-center">
+        <div className="border-b border-border bg-card px-4 py-2.5">
+            <div className="flex items-center justify-between gap-4">
+                <h2 className="text-sm font-medium text-foreground">{formatDate(date)}</h2>
+                <div className="flex gap-1 items-center">
                     <Button
                         variant="outline"
                         size="sm"
                         onClick={onToday}
                         disabled={isToday}
-                        className="text-xs bg-transparent"
+                        className="h-7 px-2.5 text-xs bg-transparent"
                     >
                         Today
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={onPrevDay} className="h-8 w-8">
-                        <ChevronLeft className="h-5 w-5" />
+                    <Button variant="ghost" size="icon" onClick={onPrevDay} className="h-7 w-7">
+                        <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={onNextDay} className="h-8 w-8">
-                        <ChevronRight className="h-5 w-5" />
+                    <Button variant="ghost" size="icon" onClick={onNextDay} className="h-7 w-7">
+                        <ChevronRight className="h-4 w-4" />
                     </Button>
                 </div>
             </div>

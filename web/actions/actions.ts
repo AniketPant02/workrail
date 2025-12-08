@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, gte, lte, isNotNull } from "drizzle-orm";
 import { db } from "@/db/db";
 import {
     folder,
@@ -103,6 +103,31 @@ export async function getTasksByFolder(folderId: string, userId: string) {
         .from(task)
         .where(and(eq(task.folderId, folderId), eq(task.userId, userId)))
         .orderBy(task.createdAt);
+}
+
+export async function getTasksDueSoonForUser(
+    userId: string,
+    options?: { folderId?: string | null },
+) {
+    const now = new Date();
+    const threeDaysOut = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+
+    const conditions = [
+        eq(task.userId, userId),
+        isNotNull(task.dueDate),
+        gte(task.dueDate, now),
+        lte(task.dueDate, threeDaysOut),
+    ];
+
+    if (options?.folderId) {
+        conditions.push(eq(task.folderId, options.folderId));
+    }
+
+    return db
+        .select()
+        .from(task)
+        .where(and(...conditions))
+        .orderBy(task.dueDate);
 }
 
 export async function createTaskForUser(

@@ -4,11 +4,12 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useDndMonitor, useDroppable, type DragEndEvent } from "@dnd-kit/core"
 import type { Task } from "@/lib/types"
 import { TimelineHeader } from "@/components/timeline/timeline-header"
-import { TimelineTaskBlock, type ScheduledBlock } from "@/components/timeline/timeline-task-block"
+import { TimelineTaskBlock, type ScheduledBlock, type PositionedBlock } from "@/components/timeline/timeline-task-block"
 
 interface HourlyTimelineProps {
     tasks?: Task[]
     onTaskTimeChange?: (task: Task, startAt: Date, endAt: Date) => void
+    onTaskUnschedule?: (task: Task) => void
 }
 
 export const TIMELINE_DROP_ID = "timeline-dropzone"
@@ -34,10 +35,10 @@ const buildDateForMinutes = (base: Date, minutes: number) => {
     return new Date(base.getFullYear(), base.getMonth(), base.getDate(), hours, mins, 0, 0)
 }
 
-export function HourlyTimeline({ tasks = [], onTaskTimeChange }: HourlyTimelineProps) {
+export function HourlyTimeline({ tasks = [], onTaskTimeChange, onTaskUnschedule }: HourlyTimelineProps) {
     const timelineRef = useRef<HTMLDivElement>(null)
     const firstRowRef = useRef<HTMLDivElement>(null)
-    const { isOver, setNodeRef } = useDroppable({
+    const { isOver, setNodeRef, active } = useDroppable({
         id: TIMELINE_DROP_ID,
     })
     const [rowHeight, setRowHeight] = useState(HOUR_HEIGHT)
@@ -46,6 +47,41 @@ export function HourlyTimeline({ tasks = [], onTaskTimeChange }: HourlyTimelineP
         return new Date(now.getFullYear(), now.getMonth(), now.getDate())
     })
 
+    // Local Optimistic State
+    const [optimisticTasks, setOptimisticTasks] = useState<Task[]>(tasks)
+
+    // Track pending updates to prevent "stale prop" flash
+    // Map<TaskId, Task>
+    const pendingUpdates = useRef<Map<string, Task>>(new Map())
+
+    // Sync: Update local state from props, but respect pending updates
+    useEffect(() => {
+        setOptimisticTasks((currentLocal) => {
+            // We want to adopt the new 'tasks' prop, UNLESS we have a pending update 
+            // that the 'tasks' prop hasn't caught up to yet.
+            return tasks.map((incomingTask) => {
+                const pending = pendingUpdates.current.get(incomingTask.id)
+                if (pending) {
+                    // Check if incoming task matches the pending version (Server caught up)
+                    const incomingStart = toDate(incomingTask.startAt)?.getTime()
+                    const pendingStart = toDate(pending.startAt)?.getTime()
+                    const incomingEnd = toDate(incomingTask.endAt)?.getTime()
+                    const pendingEnd = toDate(pending.endAt)?.getTime()
+
+                    if (incomingStart === pendingStart && incomingEnd === pendingEnd) {
+                        // Server matches pending. We can clear pending and use incoming.
+                        pendingUpdates.current.delete(incomingTask.id)
+                        return incomingTask
+                    } else {
+                        // Server is stale or different. Keep our pending version to avoid flash.
+                        return pending
+                    }
+                }
+                return incomingTask
+            })
+        })
+    }, [tasks])
+
     const isToday = selectedDate.toDateString() === new Date().toDateString()
     const currentTime = new Date()
     const currentMinutes = minutesSinceMidnight(currentTime)
@@ -53,12 +89,12 @@ export function HourlyTimeline({ tasks = [], onTaskTimeChange }: HourlyTimelineP
     const pixelsPerMinute = effectiveRowHeight / 60
     const currentOffset = isToday ? currentMinutes * pixelsPerMinute + VERTICAL_PADDING : null
 
-    const taskMap = useMemo(() => new Map((tasks ?? []).map((task) => [task.id, task])), [tasks])
+    const taskMap = useMemo(() => new Map((optimisticTasks ?? []).map((task) => [task.id, task])), [optimisticTasks])
 
     const scheduledBlocks: ScheduledBlock[] = useMemo(() => {
-        if (!tasks) return []
+        if (!optimisticTasks) return []
 
-        return tasks
+        return optimisticTasks
             .map((task) => {
                 const startAt = toDate(task.startAt)
                 const endAt = toDate(task.endAt)
@@ -71,7 +107,72 @@ export function HourlyTimeline({ tasks = [], onTaskTimeChange }: HourlyTimelineP
                 return { task, startMinutes, endMinutes }
             })
             .filter(Boolean) as ScheduledBlock[]
-    }, [tasks, selectedDate])
+    }, [optimisticTasks, selectedDate])
+
+    const positionedBlocks: PositionedBlock[] = useMemo(() => {
+        if (!scheduledBlocks.length) return []
+
+        // Break into clusters of overlapping events (by start time sweep)
+        const sorted = [...scheduledBlocks].sort((a, b) => {
+            if (a.startMinutes === b.startMinutes) {
+                return a.endMinutes - b.endMinutes
+            }
+            return a.startMinutes - b.startMinutes
+        })
+
+        const clusters: ScheduledBlock[][] = []
+        let currentCluster: ScheduledBlock[] = []
+        let clusterEnd = -Infinity
+
+        for (const block of sorted) {
+            if (!currentCluster.length || block.startMinutes < clusterEnd) {
+                currentCluster.push(block)
+                clusterEnd = Math.max(clusterEnd, block.endMinutes)
+            } else {
+                clusters.push(currentCluster)
+                currentCluster = [block]
+                clusterEnd = block.endMinutes
+            }
+        }
+        if (currentCluster.length) clusters.push(currentCluster)
+
+        const layoutCluster = (cluster: ScheduledBlock[]): PositionedBlock[] => {
+            const active: { endMinutes: number; column: number }[] = []
+            let maxColumn = 0
+            const placed: PositionedBlock[] = []
+
+            const ordered = [...cluster].sort((a, b) => {
+                if (a.startMinutes === b.startMinutes) {
+                    return a.endMinutes - b.endMinutes
+                }
+                return a.startMinutes - b.startMinutes
+            })
+
+            for (const block of ordered) {
+                // clear out tasks that ended before this block starts
+                for (let i = active.length - 1; i >= 0; i -= 1) {
+                    if (active[i].endMinutes <= block.startMinutes) {
+                        active.splice(i, 1)
+                    }
+                }
+
+                const usedColumns = new Set(active.map((item) => item.column))
+                let column = 0
+                while (usedColumns.has(column)) {
+                    column += 1
+                }
+
+                active.push({ endMinutes: block.endMinutes, column })
+                maxColumn = Math.max(maxColumn, column)
+                placed.push({ ...block, column, columns: 0 })
+            }
+
+            const totalColumns = maxColumn + 1
+            return placed.map((p) => ({ ...p, columns: totalColumns }))
+        }
+
+        return clusters.flatMap((cluster) => layoutCluster(cluster))
+    }, [scheduledBlocks])
 
     const getMinutesFromDrag = useCallback(
         (event: DragEndEvent, useBottom = false) => {
@@ -89,12 +190,46 @@ export function HourlyTimeline({ tasks = [], onTaskTimeChange }: HourlyTimelineP
 
     const handleTaskPlacement = useCallback(
         (task: Task, startMinutes: number, endMinutes: number) => {
-            if (!onTaskTimeChange) return
             const start = buildDateForMinutes(selectedDate, startMinutes)
             const end = buildDateForMinutes(selectedDate, endMinutes)
-            onTaskTimeChange(task, start, end)
+
+            const updatedTask = {
+                ...task,
+                startAt: start.toISOString(),
+                endAt: end.toISOString(),
+            }
+
+            // 1. Mark this update as pending so we don't revert if parent passes old props next render
+            pendingUpdates.current.set(task.id, updatedTask)
+
+            // 2. Update Local State Immediately
+            setOptimisticTasks((prev) => {
+                return prev.map((t) => (t.id === task.id ? updatedTask : t))
+            })
+
+            // 3. Propagate to parent for DB save
+            if (onTaskTimeChange) {
+                onTaskTimeChange(task, start, end)
+            }
         },
         [onTaskTimeChange, selectedDate],
+    )
+
+    const handleUnschedule = useCallback(
+        (task: Task) => {
+            const updatedTask = { ...task, startAt: null, endAt: null }
+
+            pendingUpdates.current.set(task.id, updatedTask)
+
+            setOptimisticTasks((prev) => {
+                const hasTask = prev.some((t) => t.id === task.id)
+                if (!hasTask) return [...prev, updatedTask]
+                return prev.map((t) => (t.id === task.id ? updatedTask : t))
+            })
+
+            onTaskUnschedule?.(task)
+        },
+        [onTaskUnschedule],
     )
 
     useDndMonitor({
@@ -111,10 +246,21 @@ export function HourlyTimeline({ tasks = [], onTaskTimeChange }: HourlyTimelineP
             const deltaMinutes = snapToQuarterHour((event.delta?.y ?? 0) / pixelsPerMinute)
 
             if (data?.type === "task" && data.task) {
+                // Dragging from sidebar onto timeline
                 const startMinutes = getMinutesFromDrag(event)
                 if (startMinutes === null) return
                 const start = Math.min(clampToDay(startMinutes), 24 * 60 - MIN_DURATION_MINUTES)
                 const end = clampToDay(start + DEFAULT_DURATION_MINUTES)
+
+                // Add to optimistic state immediately to show it placed
+                const newTask = { ...data.task, startAt: buildDateForMinutes(selectedDate, start).toISOString(), endAt: buildDateForMinutes(selectedDate, end).toISOString() }
+
+                pendingUpdates.current.set(newTask.id, newTask)
+                setOptimisticTasks((prev) => {
+                    const hasTask = prev.some((t) => t.id === newTask.id)
+                    return hasTask ? prev.map((t) => (t.id === newTask.id ? newTask : t)) : [...prev, newTask]
+                })
+
                 handleTaskPlacement(data.task as Task, start, end)
                 return
             }
@@ -188,6 +334,8 @@ export function HourlyTimeline({ tasks = [], onTaskTimeChange }: HourlyTimelineP
         setSelectedDate(new Date(now.getFullYear(), now.getMonth(), now.getDate()))
     }
 
+    const shouldHighlight = isOver && active?.data?.current?.type === "task"
+
     return (
         <div className="flex h-full min-h-0 max-h-full flex-col overflow-hidden border bg-card select-none">
             <TimelineHeader date={selectedDate} onPrevDay={handlePrevDay} onNextDay={handleNextDay} onToday={handleToday} />
@@ -198,17 +346,17 @@ export function HourlyTimeline({ tasks = [], onTaskTimeChange }: HourlyTimelineP
                         timelineRef.current = node
                         setNodeRef(node)
                     }}
-                    className={`relative h-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${isOver ? "bg-muted/40" : ""}`}
+                    className={`relative h-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${shouldHighlight ? "bg-muted/40" : ""}`}
                 >
                     <div
-                        className="relative w-full px-3 sm:px-4"
+                        className="relative w-full"
                         style={{
                             height: `${VERTICAL_PADDING * 2 + effectiveRowHeight * 24}px`,
                             paddingTop: VERTICAL_PADDING,
                             paddingBottom: VERTICAL_PADDING,
                         }}
                     >
-                        {currentOffset !== null && (
+                        {currentOffset !== null && isToday && (
                             <div
                                 className="pointer-events-none absolute inset-x-0 z-10 transition-all"
                                 style={{
@@ -228,21 +376,28 @@ export function HourlyTimeline({ tasks = [], onTaskTimeChange }: HourlyTimelineP
                             return (
                                 <div
                                     key={hour}
-                                    className="relative flex items-center border-b last:border-b-0"
+                                    className="relative"
                                     style={{ height: `${effectiveRowHeight}px` }}
                                     ref={hour === 0 ? firstRowRef : undefined}
                                 >
-                                    <div className="w-16 pr-2 text-sm font-medium text-muted-foreground text-right">
+                                    <div className="absolute inset-x-0 top-0 h-px bg-border" />
+                                    <div className="absolute left-3 top-1 text-[11px] font-medium text-muted-foreground">
                                         {displayHour} {ampm}
                                     </div>
-                                    <div className="flex-1 h-px bg-border" />
                                 </div>
                             )
                         })}
 
-                        <div className="absolute inset-y-0 left-16 right-2">
-                            {scheduledBlocks.map((block) => (
-                                <TimelineTaskBlock key={block.task.id} block={block} rowHeight={effectiveRowHeight} />
+                        <div className="absolute inset-x-0 bottom-0 h-px bg-border" />
+
+                        <div className="absolute inset-y-0 left-2 right-2">
+                            {positionedBlocks.map((block) => (
+                                <TimelineTaskBlock
+                                    key={block.task.id}
+                                    block={block}
+                                    rowHeight={effectiveRowHeight}
+                                    onRemove={handleUnschedule}
+                                />
                             ))}
                         </div>
                     </div>

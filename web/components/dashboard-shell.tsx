@@ -27,24 +27,24 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const tasksKey = session?.user ? "/api/tasks" : null
   const { data: tasksResponse } = useSWR(tasksKey, fetcher)
   const tasks: Task[] = useMemo(() => tasksResponse?.data ?? [], [tasksResponse])
-  const [activeTask, setActiveTask] = useState<Task | null>(null)
+  const [overlayTask, setOverlayTask] = useState<Task | null>(null)
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const data = event.active.data?.current as Record<string, unknown> | undefined
     const type = data?.type as string | undefined
     if (type === "task" && data?.task) {
-      setActiveTask(data.task as Task)
-    } else {
-      setActiveTask(null)
+      setOverlayTask(data.task as Task)
+      return
     }
+    setOverlayTask(null)
   }, [])
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
-    setActiveTask(null)
+    setOverlayTask(null)
   }, [])
 
   const handleDragCancel = useCallback(() => {
-    setActiveTask(null)
+    setOverlayTask(null)
   }, [])
 
   const handleTaskTimeChange = useCallback(
@@ -89,7 +89,57 @@ export function DashboardShell({ children }: DashboardShellProps) {
             return current ? { ...current, data: updatedList } : { data: updatedList }
           },
           rollbackOnError: true,
-          revalidate: true,
+          // Avoid a refetch-induced flash; rely on optimistic data and background fetch later if needed.
+          revalidate: false,
+        },
+      )
+    },
+    [mutate, tasks, tasksKey],
+  )
+
+  const handleTaskUnschedule = useCallback(
+    async (task: Task) => {
+      if (!tasksKey) return
+
+      const payload = { startAt: null, endAt: null }
+
+      await mutate(
+        tasksKey,
+        async (current: any) => {
+          const res = await fetch(`/api/tasks/${task.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+
+          if (!res.ok) {
+            throw new Error("Failed to unschedule task")
+          }
+
+          const json = await res.json().catch(() => null)
+          const updatedTask = json?.data ?? { ...task, ...payload }
+
+          if (current?.data) {
+            return {
+              ...current,
+              data: current.data.map((t: Task) => (t.id === task.id ? updatedTask : t)),
+            }
+          }
+
+          return { data: [updatedTask] }
+        },
+        {
+          optimisticData: (current: any) => {
+            const baseList: Task[] = current?.data ?? tasks
+            const hasExisting = baseList.some((t) => t.id === task.id)
+            const updatedList = hasExisting
+              ? baseList.map((t) => (t.id === task.id ? { ...t, ...payload } : t))
+              : [...baseList, { ...task, ...payload }]
+
+            return current ? { ...current, data: updatedList } : { data: updatedList }
+          },
+          rollbackOnError: true,
+          revalidate: false,
         },
       )
     },
@@ -113,15 +163,19 @@ export function DashboardShell({ children }: DashboardShellProps) {
             <div className="flex flex-1 min-h-0 flex-row gap-4 lg:gap-0">
               <section className="flex-1 min-h-0 flex flex-col overflow-hidden">{children}</section>
               <aside className="border-t lg:w-80 lg:border-l lg:border-t-0 flex flex-col min-h-0 h-full overflow-hidden">
-                <HourlyTimeline tasks={tasks} onTaskTimeChange={handleTaskTimeChange} />
+                <HourlyTimeline
+                  tasks={tasks}
+                  onTaskTimeChange={handleTaskTimeChange}
+                  onTaskUnschedule={handleTaskUnschedule}
+                />
               </aside>
             </div>
           </div>
         </SidebarInset>
         <DragOverlay>
-          {activeTask ? (
+          {overlayTask ? (
             <div className="rounded-lg border bg-card px-3 py-2 shadow-lg">
-              <p className="text-sm font-medium">{activeTask.title}</p>
+              <p className="text-sm font-medium">{overlayTask.title}</p>
               <p className="text-xs text-muted-foreground">Drag to timeline</p>
             </div>
           ) : null}

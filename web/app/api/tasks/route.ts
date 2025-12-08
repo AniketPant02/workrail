@@ -5,6 +5,8 @@ import {
     createTaskForUser,
     TaskStatus,
     TaskPriority,
+    getTasksByFolder,
+    getTasksDueSoonForUser,
 } from "@/actions/actions";
 
 function toDate(value: unknown): Date | null {
@@ -21,7 +23,21 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const tasks = await getAllTasksForUser(session.user.id);
+    const folderId =
+        req.nextUrl.searchParams.get("folderId")?.trim() || null;
+    const dueSoonParam = req.nextUrl.searchParams.get("dueSoon");
+    const isDueSoon =
+        dueSoonParam === "true" ||
+        dueSoonParam === "1" ||
+        dueSoonParam === "yes";
+
+    const tasks = isDueSoon
+        ? await getTasksDueSoonForUser(session.user.id, {
+            folderId: folderId ?? undefined,
+        })
+        : folderId
+            ? await getTasksByFolder(folderId, session.user.id)
+            : await getAllTasksForUser(session.user.id);
 
     return NextResponse.json({ data: tasks }, { status: 200 });
 }
