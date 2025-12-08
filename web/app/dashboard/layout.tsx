@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/sidebar";
 import { WorkrailSidebar } from "@/components/app-sidebar";
 import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb";
+import { HourlyTimeline } from "@/components/timeline/hourly-timeline";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -19,7 +20,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     <SidebarProvider>
       <WorkrailSidebar />
       <SidebarInset>
-        <div className="flex min-h-screen w-full flex-col">
+        <div className="flex h-screen w-full flex-col overflow-hidden">
           <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4">
             <SidebarTrigger className="text-muted-foreground" />
             <Separator
@@ -28,15 +29,10 @@ export default function Layout({ children }: { children: ReactNode }) {
             />
             <DashboardBreadcrumb />
           </header>
-          <div className="flex flex-1 min-h-0 flex-col gap-4 lg:flex-row lg:gap-0">
-            <section className="flex-1 min-h-0">{children}</section>
-            <aside className="border-t px-4 py-6 lg:w-80 lg:border-l lg:border-t-0">
-              <h2 className="text-sm font-semibold tracking-tight">
-                Timeline
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                placeholder for timeline component
-              </p>
+          <div className="flex flex-1 min-h-0 flex-row gap-4 lg:gap-0">
+            <section className="flex-1 min-h-0 flex flex-col overflow-hidden">{children}</section>
+            <aside className="border-t lg:w-80 lg:border-l lg:border-t-0 flex flex-col min-h-0 h-full overflow-hidden">
+              <HourlyTimeline />
             </aside>
           </div>
         </div>

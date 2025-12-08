@@ -112,7 +112,7 @@ export default function TaskCenter() {
 
   return (
     <div className="flex h-full min-h-0 bg-background">
-      <div className="w-2/5 min-w-0">
+      <div className="w-2/5 min-w-0 min-h-0">
         <TaskList
           tasks={tasks}
           selectedTaskId={selectedTaskId}
@@ -122,7 +122,7 @@ export default function TaskCenter() {
         />
       </div>
 
-      <div className="flex-1">
+      <div className="flex-1 min-h-0">
         <TaskEditor
           task={draftTask}
           onChange={handleDraftChange}

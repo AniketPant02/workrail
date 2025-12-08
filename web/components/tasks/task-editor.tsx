@@ -31,12 +31,12 @@ export default function TaskEditor({ task, onChange, onSave, onDelete, isSaving,
     }
 
     return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full min-h-0">
             <div className="border-b p-4">
                 <h2 className="text-sm font-semibold">Task Details</h2>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
                 <div className="space-y-2">
                     <label className="text-xs font-medium">Title</label>
                     <Input
