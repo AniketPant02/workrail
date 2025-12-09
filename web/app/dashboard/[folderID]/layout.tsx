@@ -1,34 +1,41 @@
-import type { Metadata } from "next"
-import { headers } from "next/headers"
-import { ReactNode } from "react"
+import type { Metadata } from "next";
+import { headers } from "next/headers";
+import type { ReactNode } from "react";
 
-import { getFolderById } from "@/actions/actions"
-import { auth } from "@/lib/auth"
+import { getFolderById } from "@/actions/actions";
+import { auth } from "@/lib/auth";
 
 type FolderLayoutProps = {
-    children: ReactNode
+    children: ReactNode;
     params: {
-        folderID: string
-    }
-}
+        folderID: string;
+    };
+};
 
 type FolderMetadataProps = {
-    params: Promise<{
+    params: {
         folderID: string;
-    }>;
-}
+    };
+};
 
-export async function generateMetadata({ params }: FolderMetadataProps): Promise<Metadata> {
-    const { folderID } = await params;
+export async function generateMetadata(
+    { params }: FolderMetadataProps
+): Promise<Metadata> {
+    const { folderID } = params;
+
     const session = await auth.api.getSession({ headers: await headers() })
+
     if (!session?.user) {
-        return { title: "Dashboard" }
+        return { title: "Dashboard | workrail" };
     }
 
-    const folder = await getFolderById(folderID, session.user.id)
-    return { title: folder?.name ? `${folder.name} | workrail` : "Dashboard | workrail" }
+    const folder = await getFolderById(folderID, session.user.id);
+
+    return {
+        title: folder?.name ? `${folder.name} | workrail` : "Dashboard | workrail",
+    };
 }
 
 export default function FolderLayout({ children }: FolderLayoutProps) {
-    return <>{children}</>
+    return <>{children}</>;
 }
