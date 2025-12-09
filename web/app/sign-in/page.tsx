@@ -31,6 +31,19 @@ export default function SignInPage() {
         }
     };
 
+    const handleGoogleLogin = async () => {
+        setError(null);
+        const result = await authClient.signIn.social({
+            provider: "google",
+            callbackURL: "/dashboard",
+        });
+        if (result?.error) {
+            setError(result.error.message || "Sign in failed");
+        } else if (result?.data?.url && result?.data?.redirect === false) {
+            window.location.href = result.data.url;
+        }
+    };
+
     return (
         <main>
             <div className="grid min-h-svh lg:grid-cols-2">
@@ -42,7 +55,7 @@ export default function SignInPage() {
                     </div>
                     <div className="flex flex-1 items-center justify-center">
                         <div className="w-full max-w-xs">
-                            <LoginForm handleGitHubLogin={handleGitHubLogin} />
+                            <LoginForm handleGitHubLogin={handleGitHubLogin} handleGoogleLogin={handleGoogleLogin} />
                         </div>
                     </div>
                 </div>
