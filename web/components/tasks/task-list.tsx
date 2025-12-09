@@ -67,7 +67,6 @@ function TaskListItem({ task, selected, onSelect, folderName }: TaskListItemProp
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
         id: `task-${task.id}`,
         data: { type: "task", task },
-        activationConstraint: { distance: 6 },
     })
 
     return (

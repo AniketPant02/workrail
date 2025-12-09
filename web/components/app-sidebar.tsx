@@ -97,7 +97,7 @@ export function WorkrailSidebar() {
   const handleSignOut = useCallback(async () => {
     setIsSigningOut(true);
     try {
-      return await authClient.signOut({
+      await authClient.signOut({
         fetchOptions: {
           onSuccess: () => {
             router.push("/sign-in");

@@ -3,14 +3,15 @@ import { auth } from "@/lib/auth";
 import { deleteFolderById } from "@/actions/actions";
 
 type RouteParams = {
-    params: {
+    params: Promise<{
         folderID: string;
-    };
+    }>;
 };
 
 // Delete a folder by ID
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
     const { folderID } = await params;
+
     const session = await auth.api.getSession({ headers: req.headers });
 
     if (!session?.user) {

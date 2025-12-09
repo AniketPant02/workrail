@@ -15,7 +15,9 @@ function toDate(value: unknown): Date | null {
 }
 
 type RouteContext = {
-    params: { id: string };
+    params: Promise<{
+        id: string;
+    }>;
 };
 
 export async function GET(req: NextRequest, { params }: RouteContext) {

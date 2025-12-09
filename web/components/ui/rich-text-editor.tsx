@@ -81,7 +81,7 @@ export function RichTextEditor({
     const incoming = value || ""
     const current = editor.getHTML()
     if (incoming === current) return
-    editor.commands.setContent(incoming || "<p></p>", false)
+    editor.commands.setContent(incoming || "<p></p>", { emitUpdate: false })
   }, [editor, value])
 
   if (!editor) {

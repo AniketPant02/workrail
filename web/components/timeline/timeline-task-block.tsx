@@ -74,12 +74,13 @@ export function TimelineTaskBlock({ block, rowHeight, onRemove }: TimelineTaskBl
         },
     })
 
-    const handleResizePointerDown: React.PointerEventHandler<HTMLDivElement> | undefined = resizeListeners.onPointerDown
-        ? (event) => {
-            resizeListeners.onPointerDown?.(event)
-            event.stopPropagation()
-        }
-        : undefined
+    const handleResizePointerDown: React.PointerEventHandler<HTMLDivElement> | undefined =
+        resizeListeners?.onPointerDown
+            ? (event) => {
+                resizeListeners?.onPointerDown?.(event)
+                event.stopPropagation()
+            }
+            : undefined
 
     const translateY = transform?.y ?? 0
     const resizeDeltaY = resizeTransform?.y ?? 0
