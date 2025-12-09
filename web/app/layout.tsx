@@ -14,7 +14,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "workrail",
+  title: {
+    default: "workrail",
+    template: "%s | workrail",
+  },
   description: "workrail - a monotasking productivity app",
 };
 

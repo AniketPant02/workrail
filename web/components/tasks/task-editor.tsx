@@ -1,11 +1,18 @@
 "use client"
 
+import useSWR from "swr"
+
 import type { Task } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AlertCircle, Zap, Circle, CheckCircle2 } from "lucide-react"
+import { AlertCircle, Zap, Circle, CheckCircle2, FolderClosed, CircleIcon, Clock, CheckCircle } from "lucide-react"
 import { RichTextEditor } from "@/components/ui/rich-text-editor"
+
+type Folder = {
+    id: string
+    name: string
+}
 
 interface TaskEditorProps {
     task: Task | null
@@ -16,6 +23,12 @@ interface TaskEditorProps {
     isDeleting?: boolean
 }
 
+const statusConfig = {
+    todo: { color: "text-slate-400", bgColor: "bg-slate-50 dark:bg-slate-950", icon: CircleIcon, label: "To Do" },
+    in_progress: { color: "text-blue-600", bgColor: "bg-blue-50 dark:bg-blue-950", icon: Clock, label: "In Progress" },
+    done: { color: "text-green-600", bgColor: "bg-green-50 dark:bg-green-950", icon: CheckCircle, label: "Done" },
+}
+
 const priorityConfig = {
     low: { color: "text-slate-400", bgColor: "bg-slate-50 dark:bg-slate-950", icon: Circle, label: "Low" },
     medium: { color: "text-yellow-600", bgColor: "bg-amber-50 dark:bg-amber-950", icon: CheckCircle2, label: "Medium" },
@@ -23,11 +36,18 @@ const priorityConfig = {
     urgent: { color: "text-red-600", bgColor: "bg-red-50 dark:bg-red-950", icon: Zap, label: "Urgent" },
 }
 
+const NO_FOLDER_VALUE = "none"
+
 export default function TaskEditor({ task, onChange, onSave, onDelete, isSaving, isDeleting }: TaskEditorProps) {
+    const { data: foldersResponse, isLoading: foldersLoading } = useSWR(task ? "/api/folders" : null, (url) =>
+        fetch(url).then((res) => res.json()),
+    )
+    const folders: Folder[] = foldersResponse?.data ?? []
+
     if (!task) {
         return (
             <div className="flex items-center justify-center h-full">
-                <p className="text-sm text-muted-foreground">Select a task to edit</p>
+                <p className="text-xs text-muted-foreground">Select a task to edit</p>
             </div>
         )
     }
@@ -38,25 +58,33 @@ export default function TaskEditor({ task, onChange, onSave, onDelete, isSaving,
         })
     }
 
+    const folderOptions = [...folders]
+    if (task?.folderId && !folderOptions.some((f) => f.id === task.folderId)) {
+        folderOptions.push({ id: task.folderId, name: "Current project" })
+    }
+
+    const selectedFolder = task.folderId ? folderOptions.find((f) => f.id === task.folderId) : null
+    const folderValue = task.folderId ?? NO_FOLDER_VALUE
+
     return (
-        <div className="flex flex-col h-full min-h-0">
-            <div className="border-b px-4 py-2.5">
-                <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Task Details</h2>
+        <div className="flex flex-col h-full min-h-0 bg-background">
+            <div className="border-b border-border/50 px-4 py-2">
+                <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Details</h2>
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-3">
-                <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">Title</label>
+                <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-tight">Title</label>
                     <Input
                         value={task.title}
                         onChange={(e) => handleChange("title", e.target.value)}
-                        placeholder="Task title"
-                        className="text-sm h-8"
+                        placeholder="Enter task title"
+                        className="text-sm h-7 border-border/50 focus-visible:ring-offset-0"
                     />
                 </div>
 
-                <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">Description</label>
+                <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-tight">Description</label>
                     <RichTextEditor
                         value={task.description}
                         onChange={(value) => handleChange("description", value)}
@@ -64,72 +92,109 @@ export default function TaskEditor({ task, onChange, onSave, onDelete, isSaving,
                     />
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-muted-foreground">Status</label>
-                        <Select
-                            value={task.status}
-                            onValueChange={(value) => handleChange("status", value as "todo" | "in_progress" | "done")}
-                        >
-                            <SelectTrigger className="text-sm h-8">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="todo">To Do</SelectItem>
-                                <SelectItem value="in_progress">In Progress</SelectItem>
-                                <SelectItem value="done">Done</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+                <div className="space-y-2">
+                    <div className="grid grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-tight">Status</label>
+                            <Select
+                                value={task.status}
+                                onValueChange={(value) => handleChange("status", value as "todo" | "in_progress" | "done")}
+                            >
+                                <SelectTrigger className="text-sm h-7 border-border/50 focus-visible:ring-offset-0">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="min-w-[140px]">
+                                    {(["todo", "in_progress", "done"] as const).map((status) => {
+                                        const config = statusConfig[status]
+                                        const Icon = config.icon
+                                        return (
+                                            <SelectItem key={status} value={status}>
+                                                <div className="flex items-center gap-1.5">
+                                                    <Icon className={`h-3 w-3 ${config.color}`} />
+                                                    <span className="text-xs">{config.label}</span>
+                                                </div>
+                                            </SelectItem>
+                                        )
+                                    })}
+                                </SelectContent>
+                            </Select>
+                        </div>
 
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-muted-foreground">Priority</label>
-                        <Select
-                            value={task.priority}
-                            onValueChange={(value) => handleChange("priority", value as "low" | "medium" | "high" | "urgent")}
-                        >
-                            <SelectTrigger className="text-sm h-8">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {(["low", "medium", "high", "urgent"] as const).map((priority) => {
-                                    const config = priorityConfig[priority]
-                                    const Icon = config.icon
-                                    return (
-                                        <SelectItem key={priority} value={priority}>
-                                            <div className="flex items-center gap-2">
-                                                <Icon className={`h-3.5 w-3.5 ${config.color}`} />
-                                                <span>{config.label}</span>
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-tight">Priority</label>
+                            <Select
+                                value={task.priority}
+                                onValueChange={(value) => handleChange("priority", value as "low" | "medium" | "high" | "urgent")}
+                            >
+                                <SelectTrigger className="text-sm h-7 border-border/50 focus-visible:ring-offset-0">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="min-w-[120px]">
+                                    {(["low", "medium", "high", "urgent"] as const).map((priority) => {
+                                        const config = priorityConfig[priority]
+                                        const Icon = config.icon
+                                        return (
+                                            <SelectItem key={priority} value={priority}>
+                                                <div className="flex items-center gap-1.5">
+                                                    <Icon className={`h-3 w-3 ${config.color}`} />
+                                                    <span className="text-xs">{config.label}</span>
+                                                </div>
+                                            </SelectItem>
+                                        )
+                                    })}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-tight">Folder</label>
+                            <Select
+                                value={folderValue}
+                                onValueChange={(value) => handleChange("folderId", value === NO_FOLDER_VALUE ? null : value)}
+                                disabled={foldersLoading}
+                            >
+                                <SelectTrigger className="text-sm h-7 border-border/50 focus-visible:ring-offset-0">
+                                    <SelectValue placeholder={foldersLoading ? "Loading..." : (selectedFolder?.name ?? "No project")} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value={NO_FOLDER_VALUE}>
+                                        <span className="text-xs">No project</span>
+                                    </SelectItem>
+                                    {folderOptions.map((folder) => (
+                                        <SelectItem key={folder.id} value={folder.id}>
+                                            <div className="flex items-center gap-1.5">
+                                                <FolderClosed className="h-3 w-3 text-muted-foreground" />
+                                                <span className="text-xs">{folder.name}</span>
                                             </div>
                                         </SelectItem>
-                                    )
-                                })}
-                            </SelectContent>
-                        </Select>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                 </div>
 
-                <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">Due Date</label>
+                <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-tight">Due Date</label>
                     <Input
                         type="date"
                         value={task.dueDate ? new Date(task.dueDate).toISOString().split("T")[0] : ""}
                         onChange={(e) => handleChange("dueDate", e.target.value || null)}
-                        className="text-sm h-8"
+                        className="text-sm h-7 border-border/50 focus-visible:ring-offset-0"
                     />
                 </div>
             </div>
 
-            <div className="border-t px-4 py-2.5 flex gap-2 bg-card">
+            <div className="border-t border-border/50 px-4 py-2 flex gap-2 bg-card">
                 <Button
                     variant="outline"
-                    className="flex-1 text-xs h-8 bg-transparent"
+                    className="flex-1 text-xs h-7 font-medium bg-transparent"
                     onClick={onDelete}
                     disabled={isDeleting}
                 >
                     {isDeleting ? "Deleting..." : "Delete"}
                 </Button>
-                <Button className="flex-1 text-xs h-8" onClick={onSave} disabled={isSaving}>
+                <Button className="flex-1 text-xs h-7 font-medium" onClick={onSave} disabled={isSaving}>
                     {isSaving ? "Saving..." : "Save"}
                 </Button>
             </div>
