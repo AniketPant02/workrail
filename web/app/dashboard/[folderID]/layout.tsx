@@ -5,25 +5,25 @@ import type { ReactNode } from "react";
 import { getFolderById } from "@/actions/actions";
 import { auth } from "@/lib/auth";
 
+type FolderParams = Promise<{
+    folderID: string;
+}>;
+
 type FolderLayoutProps = {
     children: ReactNode;
-    params: {
-        folderID: string;
-    };
+    params: FolderParams;
 };
 
 type FolderMetadataProps = {
-    params: {
-        folderID: string;
-    };
+    params: FolderParams;
 };
 
 export async function generateMetadata(
     { params }: FolderMetadataProps
 ): Promise<Metadata> {
-    const { folderID } = params;
+    const { folderID } = await params;
 
-    const session = await auth.api.getSession({ headers: await headers() })
+    const session = await auth.api.getSession({ headers: await headers() });
 
     if (!session?.user) {
         return { title: "Dashboard | workrail" };
@@ -36,6 +36,6 @@ export async function generateMetadata(
     };
 }
 
-export default function FolderLayout({ children }: FolderLayoutProps) {
+export default async function FolderLayout({ children, params }: FolderLayoutProps) {
     return <>{children}</>;
 }
