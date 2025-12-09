@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: FolderMetadataProps): Promise
     }
 
     const folder = await getFolderById(folderID, session.user.id)
-    return { title: folder?.name ?? "Dashboard" }
+    return { title: folder?.name ? `${folder.name} | workrail` : "Dashboard | workrail" }
 }
 
 export default function FolderLayout({ children }: FolderLayoutProps) {
