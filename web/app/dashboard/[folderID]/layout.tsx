@@ -13,18 +13,19 @@ type FolderLayoutProps = {
 }
 
 type FolderMetadataProps = {
-    params: {
-        folderID: string
-    }
+    params: Promise<{
+        folderID: string;
+    }>;
 }
 
 export async function generateMetadata({ params }: FolderMetadataProps): Promise<Metadata> {
+    const { folderID } = await params;
     const session = await auth.api.getSession({ headers: await headers() })
     if (!session?.user) {
         return { title: "Dashboard" }
     }
 
-    const folder = await getFolderById(params.folderID, session.user.id)
+    const folder = await getFolderById(folderID, session.user.id)
     return { title: folder?.name ?? "Dashboard" }
 }
 
