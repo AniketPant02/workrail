@@ -14,6 +14,9 @@ import { WorkrailSidebar } from "@/components/app-sidebar"
 import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb"
 import { HourlyTimeline } from "@/components/timeline/hourly-timeline"
 import { authClient } from "@/lib/auth-client"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { Focus } from "lucide-react"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -159,6 +162,13 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 className="h-6 bg-border"
               />
               <DashboardBreadcrumb />
+              <div className="ml-auto">
+                <Link href="/focus-mode">
+                  <Button variant="outline" size="sm" className="flex gap-2 items-center">
+                    <Focus /> Focus Mode
+                  </Button>
+                </Link>
+              </div>
             </header>
             <div className="flex flex-1 min-h-0 flex-row gap-4 lg:gap-0">
               <section className="flex-1 min-h-0 flex flex-col overflow-hidden">{children}</section>
