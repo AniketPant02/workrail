@@ -6,8 +6,16 @@ import useSWR from "swr"
 
 import type { Task } from "@/lib/types"
 import { useDraggable } from "@dnd-kit/core"
+import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { AlertCircle, CheckCircle2, Circle, Zap } from "lucide-react"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
+import { AlertCircle, ArrowUpDown, CheckCircle2, Circle, Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface TaskListProps {
@@ -23,6 +31,13 @@ const priorityIcons = {
     medium: { icon: CheckCircle2, color: "text-yellow-600" },
     high: { icon: AlertCircle, color: "text-orange-600" },
     urgent: { icon: Zap, color: "text-red-600" },
+}
+
+const priorityRank: Record<Task["priority"], number> = {
+    low: 1,
+    medium: 2,
+    high: 3,
+    urgent: 4,
 }
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
@@ -48,6 +63,12 @@ const formatDueDate = (date: Date) => {
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
+const parseDueDate = (date: Task["dueDate"]) => {
+    if (!date) return null
+    const parsed = new Date(date)
+    return isNaN(parsed.getTime()) ? null : parsed
+}
+
 interface TaskListItemProps {
     task: Task
     selected: boolean
@@ -58,9 +79,8 @@ interface TaskListItemProps {
 function TaskListItem({ task, selected, onSelect, folderName }: TaskListItemProps) {
     const PriorityIcon = priorityIcons[task.priority]?.icon || Circle
     const priorityColor = priorityIcons[task.priority]?.color || "text-slate-400"
-    const parsedDueDate = task.dueDate ? new Date(task.dueDate) : null
-    const hasValidDueDate = parsedDueDate && !isNaN(parsedDueDate.getTime())
-    const dueDateLabel = hasValidDueDate ? formatDueDate(parsedDueDate) : "No due date"
+    const parsedDueDate = parseDueDate(task.dueDate)
+    const dueDateLabel = parsedDueDate ? formatDueDate(parsedDueDate) : "No due date"
     const showFolder = task.folderId !== null
     const folderLabel = folderName ?? task.folderId ?? "Folder"
 
@@ -124,9 +144,42 @@ export default function TaskList({
     isCreating,
 }: TaskListProps) {
     const [newTaskTitle, setNewTaskTitle] = useState("")
+    const [sortBy, setSortBy] = useState<"priority" | "dueDate">("priority")
+    const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
     const { data: foldersResponse } = useSWR("/api/folders", fetcher)
     const folders: Folder[] = foldersResponse?.data ?? []
     const folderMap = useMemo(() => new Map(folders.map((f) => [f.id, f.name])), [folders])
+    const sortedTasks = useMemo(() => {
+        const originalOrder = new Map(tasks.map((task, index) => [task.id, index]))
+
+        return [...tasks].sort((a, b) => {
+            let comparison = 0
+
+            if (sortBy === "priority") {
+                const diff = (priorityRank[a.priority] ?? 0) - (priorityRank[b.priority] ?? 0)
+                comparison = sortDirection === "asc" ? diff : -diff
+            } else {
+                const aDate = parseDueDate(a.dueDate)
+                const bDate = parseDueDate(b.dueDate)
+
+                if (aDate && bDate) {
+                    comparison =
+                        sortDirection === "asc"
+                            ? aDate.getTime() - bDate.getTime()
+                            : bDate.getTime() - aDate.getTime()
+                } else if (aDate && !bDate) {
+                    comparison = -1
+                } else if (!aDate && bDate) {
+                    comparison = 1
+                } else {
+                    comparison = 0
+                }
+            }
+
+            if (comparison !== 0) return comparison
+            return (originalOrder.get(a.id) ?? 0) - (originalOrder.get(b.id) ?? 0)
+        })
+    }, [sortBy, sortDirection, tasks])
 
     const handleCreateTask = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "Enter" && newTaskTitle.trim()) {
@@ -135,13 +188,62 @@ export default function TaskList({
         }
     }
 
+    const handleSortChange = (value: "priority" | "dueDate") => {
+        setSortBy(value)
+        setSortDirection(value === "priority" ? "desc" : "asc")
+    }
+
+    const toggleDirection = () => {
+        setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))
+    }
+
+    const directionLabel =
+        sortBy === "priority"
+            ? sortDirection === "desc"
+                ? "Urgent first"
+                : "Low first"
+            : sortDirection === "asc"
+                ? "Soonest first"
+                : "Latest first"
+
     return (
         <div className="flex flex-col h-full border-r bg-card">
-            <div className="border-b p-4">
-                <h2 className="text-sm font-semibold">Tasks</h2>
-                <p className="text-xs text-muted-foreground mt-1">
-                    {tasks.length} {tasks.length === 1 ? "task" : "tasks"}
-                </p>
+            <div className="border-b p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                    <div>
+                        <h2 className="text-sm font-semibold">Tasks</h2>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            {tasks.length} {tasks.length === 1 ? "task" : "tasks"}
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap justify-end">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.08em]">Sort</span>
+                        <Select value={sortBy} onValueChange={(value) => handleSortChange(value as "priority" | "dueDate")}>
+                            <SelectTrigger size="sm" className="h-8 text-xs border-border/60 bg-background px-2 shrink-0">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent align="end">
+                                <SelectItem value="priority">
+                                    <span className="text-xs">Priority</span>
+                                </SelectItem>
+                                <SelectItem value="dueDate">
+                                    <span className="text-xs">Due date</span>
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground shrink-0"
+                            onClick={toggleDirection}
+                            aria-label={`Toggle sort direction (${directionLabel})`}
+                            title={directionLabel}
+                        >
+                            <ArrowUpDown className="h-4 w-4" />
+                            <span className="ml-1">{directionLabel}</span>
+                        </Button>
+                    </div>
+                </div>
                 <input
                     type="text"
                     placeholder="Add a task..."
@@ -149,7 +251,7 @@ export default function TaskList({
                     onChange={(e) => setNewTaskTitle(e.target.value)}
                     onKeyDown={handleCreateTask}
                     disabled={isCreating}
-                    className="mt-3 w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all disabled:opacity-50"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all disabled:opacity-50"
                 />
             </div>
 
@@ -158,7 +260,7 @@ export default function TaskList({
                     {tasks.length === 0 ? (
                         <p className="text-xs text-muted-foreground p-2 text-center">No tasks yet</p>
                     ) : (
-                        tasks.map((task) => {
+                        sortedTasks.map((task) => {
                             const folderName = task.folderId ? folderMap.get(task.folderId) : undefined
                             return (
                                 <TaskListItem
