@@ -6,7 +6,9 @@ import useSWR from "swr"
 
 import type { Task } from "@/lib/types"
 import { useDraggable } from "@dnd-kit/core"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
     Select,
@@ -15,6 +17,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { AlertCircle, ArrowUpDown, CheckCircle2, Circle, Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -83,6 +86,7 @@ function TaskListItem({ task, selected, onSelect, folderName }: TaskListItemProp
     const dueDateLabel = parsedDueDate ? formatDueDate(parsedDueDate) : "No due date"
     const showFolder = task.folderId !== null
     const folderLabel = folderName ?? task.folderId ?? "Folder"
+    const shouldShowTitleTooltip = task.title.trim().length > 32
 
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
         id: `task-${task.id}`,
@@ -91,35 +95,42 @@ function TaskListItem({ task, selected, onSelect, folderName }: TaskListItemProp
 
     return (
         <button
+            type="button"
             ref={setNodeRef}
-            style={isDragging ? { opacity: 0.7 } : undefined}
+            style={isDragging ? { opacity: 0.85 } : undefined}
             onClick={() => onSelect(task.id)}
+            aria-pressed={selected}
             className={cn(
-                "w-full rounded-lg border p-3 text-left transition-colors",
-                "hover:bg-accent hover:border-accent",
-                selected ? "border-primary bg-primary/5" : "border-border bg-card",
+                "group relative w-full overflow-hidden rounded-xl border bg-card/80 text-left shadow-xs transition-all",
+                "hover:border-primary/40 hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1",
+                selected ? "border-primary shadow-sm ring-1 ring-primary/20" : "border-border/70",
             )}
         >
-            <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium leading-tight truncate">{task.title}</p>
-                    <div className="flex items-center gap-2 mt-1.5">
+            <div className="grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 sm:gap-4">
+                <div className="min-w-0 space-y-1.5">
+                    <p className="line-clamp-2 text-sm font-medium leading-tight text-foreground wrap-break-word">{task.title}</p>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         {showFolder && (
-                            <span className="inline-flex max-w-[160px] items-center rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground truncate">
+                            <Badge variant="outline" className="max-w-[180px] truncate bg-muted/60 text-[11px] font-medium">
                                 {folderLabel}
-                            </span>
+                            </Badge>
                         )}
-                        <span className="text-xs text-muted-foreground">{dueDateLabel}</span>
+                        <Badge variant="secondary" className="text-[11px] font-medium">
+                            {dueDateLabel}
+                        </Badge>
                     </div>
                 </div>
-                <div className="flex items-center gap-1">
-                    <PriorityIcon className={cn("h-4 w-4 shrink-0 mt-0.5", priorityColor)} />
+                <div className="flex items-center gap-2 sm:gap-3">
+                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-muted/60 text-muted-foreground">
+                        <PriorityIcon className={cn("h-4 w-4 shrink-0", priorityColor)} />
+                    </span>
                     <div
-                        className="ml-2 flex h-6 w-6 items-center justify-center rounded-md border border-border bg-muted/60 text-muted-foreground cursor-grab active:cursor-grabbing"
+                        className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background/70 text-muted-foreground shadow-xs transition hover:bg-muted/70 cursor-grab active:cursor-grabbing"
                         {...attributes}
                         {...listeners}
                         onClick={(e) => e.stopPropagation()}
                         title="Drag to timeline"
+                        aria-label="Drag to timeline"
                     >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <circle cx="8" cy="6" r="1" />
@@ -207,19 +218,19 @@ export default function TaskList({
                 : "Latest first"
 
     return (
-        <div className="flex flex-col h-full border-r bg-card">
-            <div className="border-b p-4 space-y-3">
-                <div className="flex items-start justify-between gap-2">
+        <div className="flex h-full min-h-0 flex-col border-r border-border/70 bg-card/90">
+            <div className="border-b border-border/60 px-4 py-3 sm:px-5 sm:py-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h2 className="text-sm font-semibold">Tasks</h2>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="mt-1 text-xs text-muted-foreground">
                             {tasks.length} {tasks.length === 1 ? "task" : "tasks"}
                         </p>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap justify-end">
+                    <div className="flex flex-wrap items-center justify-start gap-2 text-xs text-muted-foreground sm:justify-end">
                         <span className="text-[10px] font-semibold uppercase tracking-[0.08em]">Sort</span>
                         <Select value={sortBy} onValueChange={(value) => handleSortChange(value as "priority" | "dueDate")}>
-                            <SelectTrigger size="sm" className="h-8 text-xs border-border/60 bg-background px-2 shrink-0">
+                            <SelectTrigger size="sm" className="h-8 shrink-0 bg-background px-2 text-xs sm:min-w-[120px]">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent align="end">
@@ -234,31 +245,35 @@ export default function TaskList({
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground shrink-0"
+                            className="h-8 shrink-0 px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground"
                             onClick={toggleDirection}
                             aria-label={`Toggle sort direction (${directionLabel})`}
                             title={directionLabel}
                         >
                             <ArrowUpDown className="h-4 w-4" />
-                            <span className="ml-1">{directionLabel}</span>
+                            <span className="ml-1 whitespace-nowrap">{directionLabel}</span>
                         </Button>
                     </div>
                 </div>
-                <input
-                    type="text"
-                    placeholder="Add a task..."
-                    value={newTaskTitle}
-                    onChange={(e) => setNewTaskTitle(e.target.value)}
-                    onKeyDown={handleCreateTask}
-                    disabled={isCreating}
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all disabled:opacity-50"
-                />
+                <div className="mt-3">
+                    <Input
+                        type="text"
+                        placeholder="Add a task..."
+                        value={newTaskTitle}
+                        onChange={(e) => setNewTaskTitle(e.target.value)}
+                        onKeyDown={handleCreateTask}
+                        disabled={isCreating}
+                        className="h-9 border-border/60 bg-background text-sm"
+                    />
+                </div>
             </div>
 
             <ScrollArea className="flex-1 min-h-0">
-                <div className="p-3 space-y-2">
+                <div className="flex min-h-full flex-col justify-center gap-3 px-3 py-3 sm:px-4 sm:py-4">
                     {tasks.length === 0 ? (
-                        <p className="text-xs text-muted-foreground p-2 text-center">No tasks yet</p>
+                        <div className="flex items-center justify-center py-8">
+                            <p className="text-center text-xs text-muted-foreground">No tasks yet</p>
+                        </div>
                     ) : (
                         sortedTasks.map((task) => {
                             const folderName = task.folderId ? folderMap.get(task.folderId) : undefined
