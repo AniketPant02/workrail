@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Plus,
   Trash2,
+  Edit2, // NEW
 } from "lucide-react";
 
 import { NavUser } from "@/components/nav-user";
@@ -37,8 +38,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
+  // AlertDialogTrigger export was present in original file
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { useEffect, useRef } from "react";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -248,6 +251,9 @@ export function WorkrailSidebar() {
                           router.push("/dashboard");
                         }
                       }}
+                      onRenamed={async () => {
+                        await mutateFolders();
+                      }}
                     />
                   );
                 })}
@@ -275,10 +281,48 @@ type FolderRowProps = {
   href: string;
   isActive: boolean;
   onDeleted: () => void | Promise<void>;
+  onRenamed: () => void | Promise<void>;
 };
 
-function FolderRow({ folder, href, isActive, onDeleted }: FolderRowProps) {
+function FolderRow({ folder, href, isActive, onDeleted, onRenamed }: FolderRowProps) {
   const [open, setOpen] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(folder.name);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isRenaming) {
+      inputRef.current?.focus();
+    }
+  }, [isRenaming]);
+
+  // Sync renameValue with props if not renaming
+  useEffect(() => {
+    if (!isRenaming) {
+      setRenameValue(folder.name);
+    }
+  }, [folder.name, isRenaming]);
+
+  const handleConfirmRename = useCallback(async () => {
+    const name = renameValue.trim();
+    if (!name || name === folder.name) {
+      setIsRenaming(false);
+      setRenameValue(folder.name);
+      return;
+    }
+
+    const res = await fetch(`/api/folders/${folder.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+
+    if (res.ok) {
+      await onRenamed();
+    }
+
+    setIsRenaming(false);
+  }, [folder.id, folder.name, renameValue, onRenamed]);
 
   const handleConfirmDelete = useCallback(async () => {
     const res = await fetch(`/api/folders/${folder.id}`, {
@@ -292,6 +336,38 @@ function FolderRow({ folder, href, isActive, onDeleted }: FolderRowProps) {
     setOpen(false);
   }, [folder.id, onDeleted]);
 
+  if (isRenaming) {
+    return (
+      <SidebarMenuItem>
+        <div className="flex w-full items-center gap-2 rounded-md bg-accent/40 px-2 py-1.5">
+          <FolderClosed className="size-4 shrink-0" />
+          <input
+            ref={inputRef}
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleConfirmRename();
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                setIsRenaming(false);
+                setRenameValue(folder.name);
+              }
+            }}
+            onBlur={() => {
+              // Determine UX: Should we save on blur?
+              // Often better to save if valid, or just cancel.
+              // Let's save on blur for convenience.
+              handleConfirmRename();
+            }}
+            className="w-full bg-transparent text-sm outline-none"
+          />
+        </div>
+      </SidebarMenuItem>
+    );
+  }
+
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <SidebarMenuItem>
@@ -302,11 +378,25 @@ function FolderRow({ folder, href, isActive, onDeleted }: FolderRowProps) {
           </Link>
         </SidebarMenuButton>
 
+        {/* Edit Action */}
+        <SidebarMenuAction
+          showOnHover
+          aria-label={`Rename folder ${folder.name}`}
+          className="right-7 hover:bg-transparent hover:text-foreground text-muted-foreground"
+          onClick={(e) => {
+            e.preventDefault();
+            setIsRenaming(true);
+          }}
+        >
+          <Edit2 className="h-3.5 w-3.5" />
+        </SidebarMenuAction>
+
+        {/* Delete Action */}
         <AlertDialogTrigger asChild>
           <SidebarMenuAction
             showOnHover
             aria-label={`Delete folder ${folder.name}`}
-            className="text-red-500 hover:bg-red-500/10 focus-visible:ring-red-500/40"
+            className="hover:bg-transparent hover:text-red-500 text-muted-foreground"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </SidebarMenuAction>
