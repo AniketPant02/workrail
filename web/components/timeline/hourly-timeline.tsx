@@ -1,7 +1,8 @@
 "use client"
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { useDndMonitor, useDroppable, type DragEndEvent } from "@dnd-kit/core"
+import { createPortal } from "react-dom"
+import { useDndMonitor, useDroppable, DragOverlay, type DragEndEvent } from "@dnd-kit/core"
 import type { Task } from "@/lib/types"
 import { TimelineHeader } from "@/components/timeline/timeline-header"
 import { TimelineTaskBlock, type ScheduledBlock, type PositionedBlock } from "@/components/timeline/timeline-task-block"
@@ -50,30 +51,37 @@ export function HourlyTimeline({ tasks = [], onTaskTimeChange, onTaskUnschedule 
     // Local Optimistic State
     const [optimisticTasks, setOptimisticTasks] = useState<Task[]>(tasks)
 
+    // Track active drag for ghost/overlay
+    const [activeDragState, setActiveDragState] = useState<{
+        taskId?: string
+        task?: Task // For external tasks
+        startMinutes: number
+        endMinutes: number
+        isNew?: boolean
+        isResizing?: boolean
+    } | null>(null)
+
+    // Track any active generic drag task (e.g. from sidebar) to show overlay even when not over timeline
+    const [activeSidebarTask, setActiveSidebarTask] = useState<Task | null>(null)
+
     // Track pending updates to prevent "stale prop" flash
-    // Map<TaskId, Task>
     const pendingUpdates = useRef<Map<string, Task>>(new Map())
 
     // Sync: Update local state from props, but respect pending updates
     useEffect(() => {
         setOptimisticTasks((currentLocal) => {
-            // We want to adopt the new 'tasks' prop, UNLESS we have a pending update 
-            // that the 'tasks' prop hasn't caught up to yet.
             return tasks.map((incomingTask) => {
                 const pending = pendingUpdates.current.get(incomingTask.id)
                 if (pending) {
-                    // Check if incoming task matches the pending version (Server caught up)
                     const incomingStart = toDate(incomingTask.startAt)?.getTime()
                     const pendingStart = toDate(pending.startAt)?.getTime()
                     const incomingEnd = toDate(incomingTask.endAt)?.getTime()
                     const pendingEnd = toDate(pending.endAt)?.getTime()
 
                     if (incomingStart === pendingStart && incomingEnd === pendingEnd) {
-                        // Server matches pending. We can clear pending and use incoming.
                         pendingUpdates.current.delete(incomingTask.id)
                         return incomingTask
                     } else {
-                        // Server is stale or different. Keep our pending version to avoid flash.
                         return pending
                     }
                 }
@@ -91,11 +99,79 @@ export function HourlyTimeline({ tasks = [], onTaskTimeChange, onTaskUnschedule 
 
     const taskMap = useMemo(() => new Map((optimisticTasks ?? []).map((task) => [task.id, task])), [optimisticTasks])
 
-    const scheduledBlocks: ScheduledBlock[] = useMemo(() => {
-        if (!optimisticTasks) return []
+    const getMinutesFromDrag = useCallback(
+        (event: DragEndEvent | any, useBottom = false) => {
+            const rect = event?.active?.rect?.current?.translated ?? event?.active?.rect?.current?.initial
+            if (!rect || !timelineRef.current) return null
 
-        return optimisticTasks
+            const containerRect = timelineRef.current.getBoundingClientRect()
+            const scrollTop = timelineRef.current.scrollTop
+            const yPosition = (useBottom ? rect.bottom : rect.top) - containerRect.top + scrollTop
+            const minutes = (yPosition - VERTICAL_PADDING) / pixelsPerMinute
+            return clampToDay(snapToQuarterHour(minutes))
+        },
+        [pixelsPerMinute],
+    )
+
+    // Calculation helper for drag events
+    const calculateDragTimes = useCallback((event: DragEndEvent | any, isOverTimeline: boolean) => {
+        if (!timelineRef.current || !isOverTimeline) return null
+
+        const data = event.active.data?.current as Record<string, any> | undefined
+        const deltaMinutes = snapToQuarterHour((event.delta?.y ?? 0) / pixelsPerMinute)
+
+        if (data?.type === "task" && data.task) {
+            // External task
+            const startMinutes = getMinutesFromDrag(event)
+            if (startMinutes === null) return null
+            const start = Math.min(clampToDay(startMinutes), 24 * 60 - MIN_DURATION_MINUTES)
+            const end = clampToDay(start + DEFAULT_DURATION_MINUTES)
+            return { startMinutes: start, endMinutes: end, isNew: true, task: data.task as Task }
+        }
+
+        if (data?.type === "timeline-task" && data.taskId) {
+            // Existing task move
+            const startValue = data.startMinutes ?? 0
+            const endValue = data.endMinutes ?? startValue + DEFAULT_DURATION_MINUTES
+
+            const pointerStart = getMinutesFromDrag(event)
+            // If pointerStart is available (mouse over timeline), use it for absolute positioning style
+            // Otherwise fall back to delta (if dragging blindly? usually pointer works)
+
+            const baseStart = pointerStart ?? snapToQuarterHour(startValue + deltaMinutes)
+            const duration = Math.max(MIN_DURATION_MINUTES, endValue - startValue)
+            const safeStart = clampToDay(Math.min(baseStart, 24 * 60 - duration))
+            const end = clampToDay(safeStart + duration)
+
+            return { startMinutes: safeStart, endMinutes: end, isNew: false, taskId: data.taskId, isResizing: false }
+        }
+
+        if (data?.type === "timeline-resize" && data.taskId) {
+            // Resizing
+            const startValue = data.startMinutes ?? 0
+            const endValue = data.endMinutes ?? startValue + DEFAULT_DURATION_MINUTES
+            const pointerEnd = getMinutesFromDrag(event, true)
+            const snappedStart = clampToDay(snapToQuarterHour(startValue))
+            const minEnd = snappedStart + MIN_DURATION_MINUTES
+            const proposedEnd = pointerEnd !== null ? snapToQuarterHour(pointerEnd) : snapToQuarterHour(endValue + deltaMinutes)
+            const clampedEnd = clampToDay(Math.max(minEnd, proposedEnd))
+            const safeEnd = Math.max(minEnd, clampedEnd)
+            return { startMinutes: snappedStart, endMinutes: safeEnd, isNew: false, taskId: data.taskId, isResizing: true }
+        }
+
+        return null
+    }, [pixelsPerMinute, getMinutesFromDrag])
+
+
+    const scheduledBlocks: ScheduledBlock[] = useMemo(() => {
+        // Base blocks from optimistic state
+        let blocks = (optimisticTasks ?? [])
             .map((task) => {
+                // If this task is being dragged/resized, rely on the drag state instead
+                if (activeDragState && !activeDragState.isNew && activeDragState.taskId === task.id) {
+                    return null // Will be re-added below
+                }
+
                 const startAt = toDate(task.startAt)
                 const endAt = toDate(task.endAt)
                 if (!startAt || !isSameDay(startAt, selectedDate)) return null
@@ -107,7 +183,27 @@ export function HourlyTimeline({ tasks = [], onTaskTimeChange, onTaskUnschedule 
                 return { task, startMinutes, endMinutes }
             })
             .filter(Boolean) as ScheduledBlock[]
-    }, [optimisticTasks, selectedDate])
+
+        // Inject active drag ghost
+        if (activeDragState) {
+            // For new tasks (isNew), we construct a temp task object
+            // For existing tasks, we grab from taskMap
+            const task = activeDragState.isNew
+                ? activeDragState.task!
+                : taskMap.get(activeDragState.taskId!)
+
+            if (task) {
+                // Create a ghost block
+                blocks.push({
+                    task: task,
+                    startMinutes: activeDragState.startMinutes,
+                    endMinutes: activeDragState.endMinutes,
+                })
+            }
+        }
+
+        return blocks
+    }, [optimisticTasks, selectedDate, activeDragState, taskMap])
 
     const positionedBlocks: PositionedBlock[] = useMemo(() => {
         if (!scheduledBlocks.length) return []
@@ -174,20 +270,6 @@ export function HourlyTimeline({ tasks = [], onTaskTimeChange, onTaskUnschedule 
         return clusters.flatMap((cluster) => layoutCluster(cluster))
     }, [scheduledBlocks])
 
-    const getMinutesFromDrag = useCallback(
-        (event: DragEndEvent, useBottom = false) => {
-            const rect = event?.active?.rect?.current?.translated ?? event?.active?.rect?.current?.initial
-            if (!rect || !timelineRef.current) return null
-
-            const containerRect = timelineRef.current.getBoundingClientRect()
-            const scrollTop = timelineRef.current.scrollTop
-            const yPosition = (useBottom ? rect.bottom : rect.top) - containerRect.top + scrollTop
-            const minutes = (yPosition - VERTICAL_PADDING) / pixelsPerMinute
-            return clampToDay(snapToQuarterHour(minutes))
-        },
-        [pixelsPerMinute],
-    )
-
     const handleTaskPlacement = useCallback(
         (task: Task, startMinutes: number, endMinutes: number) => {
             const start = buildDateForMinutes(selectedDate, startMinutes)
@@ -199,15 +281,13 @@ export function HourlyTimeline({ tasks = [], onTaskTimeChange, onTaskUnschedule 
                 endAt: end.toISOString(),
             }
 
-            // 1. Mark this update as pending so we don't revert if parent passes old props next render
             pendingUpdates.current.set(task.id, updatedTask)
-
-            // 2. Update Local State Immediately
             setOptimisticTasks((prev) => {
+                const exists = prev.some(t => t.id === task.id)
+                if (!exists) return [...prev, updatedTask]
                 return prev.map((t) => (t.id === task.id ? updatedTask : t))
             })
 
-            // 3. Propagate to parent for DB save
             if (onTaskTimeChange) {
                 onTaskTimeChange(task, start, end)
             }
@@ -218,22 +298,51 @@ export function HourlyTimeline({ tasks = [], onTaskTimeChange, onTaskUnschedule 
     const handleUnschedule = useCallback(
         (task: Task) => {
             const updatedTask = { ...task, startAt: null, endAt: null }
-
             pendingUpdates.current.set(task.id, updatedTask)
-
             setOptimisticTasks((prev) => {
                 const hasTask = prev.some((t) => t.id === task.id)
                 if (!hasTask) return [...prev, updatedTask]
                 return prev.map((t) => (t.id === task.id ? updatedTask : t))
             })
-
             onTaskUnschedule?.(task)
         },
         [onTaskUnschedule],
     )
 
     useDndMonitor({
+        onDragStart(event) {
+            const data = event.active.data?.current as any
+
+            if (data?.type === "task" && data.task) {
+                setActiveSidebarTask(data.task)
+                // Don't calculate drag times yet for new task, wait for move over timeline
+            }
+
+            if (data?.type === "timeline-task" || data?.type === "timeline-resize") {
+                // Existing tasks are already on the timeline
+                const calc = calculateDragTimes(event, true)
+                if (calc) setActiveDragState({ ...calc, taskId: calc.taskId ?? calc.task?.id })
+            }
+        },
+        onDragMove(event) {
+            const isOverTimeline = event.over?.id === TIMELINE_DROP_ID
+            const calc = calculateDragTimes(event, isOverTimeline)
+            if (calc) {
+                setActiveDragState(prev => {
+                    if (prev && prev.startMinutes === calc.startMinutes && prev.endMinutes === calc.endMinutes) return prev
+                    return { ...calc, taskId: calc.taskId ?? calc.task?.id }
+                })
+            } else {
+                setActiveDragState(null)
+            }
+        },
+        onDragCancel() {
+            setActiveDragState(null)
+            setActiveSidebarTask(null)
+        },
         onDragEnd(event) {
+            setActiveDragState(null)
+            setActiveSidebarTask(null)
             if (!timelineRef.current) return
 
             const data = event.active.data?.current as Record<string, any> | undefined
@@ -243,57 +352,17 @@ export function HourlyTimeline({ tasks = [], onTaskTimeChange, onTaskUnschedule 
                 return
             }
 
-            const deltaMinutes = snapToQuarterHour((event.delta?.y ?? 0) / pixelsPerMinute)
+            // Reuse the calculation logic
+            // Note: onDragEnd, isOver should be true if we are here and passed the check above?
+            // Actually, event.over?.id check above is sufficient.
+            const calc = calculateDragTimes(event, true) // assume true because we checked over id
+            if (!calc) return
 
-            if (data?.type === "task" && data.task) {
-                // Dragging from sidebar onto timeline
-                const startMinutes = getMinutesFromDrag(event)
-                if (startMinutes === null) return
-                const start = Math.min(clampToDay(startMinutes), 24 * 60 - MIN_DURATION_MINUTES)
-                const end = clampToDay(start + DEFAULT_DURATION_MINUTES)
+            if (calc.isNew && event.over?.id !== TIMELINE_DROP_ID) return
 
-                // Add to optimistic state immediately to show it placed
-                const newTask = { ...data.task, startAt: buildDateForMinutes(selectedDate, start).toISOString(), endAt: buildDateForMinutes(selectedDate, end).toISOString() }
-
-                pendingUpdates.current.set(newTask.id, newTask)
-                setOptimisticTasks((prev) => {
-                    const hasTask = prev.some((t) => t.id === newTask.id)
-                    return hasTask ? prev.map((t) => (t.id === newTask.id ? newTask : t)) : [...prev, newTask]
-                })
-
-                handleTaskPlacement(data.task as Task, start, end)
-                return
-            }
-
-            if (data?.type === "timeline-task" && data.taskId) {
-                const task = taskMap.get(data.taskId)
-                if (!task) return
-
-                const startValue = data.startMinutes ?? 0
-                const endValue = data.endMinutes ?? startValue + DEFAULT_DURATION_MINUTES
-
-                const pointerStart = getMinutesFromDrag(event)
-                const baseStart = pointerStart ?? snapToQuarterHour(startValue + deltaMinutes)
-                const duration = Math.max(MIN_DURATION_MINUTES, endValue - startValue)
-                const safeStart = clampToDay(Math.min(baseStart, 24 * 60 - duration))
-                const end = clampToDay(safeStart + duration)
-                handleTaskPlacement(task, safeStart, end)
-                return
-            }
-
-            if (data?.type === "timeline-resize" && data.taskId) {
-                const task = taskMap.get(data.taskId)
-                if (!task) return
-
-                const startValue = data.startMinutes ?? 0
-                const endValue = data.endMinutes ?? startValue + DEFAULT_DURATION_MINUTES
-                const pointerEnd = getMinutesFromDrag(event, true)
-                const snappedStart = clampToDay(snapToQuarterHour(startValue))
-                const minEnd = snappedStart + MIN_DURATION_MINUTES
-                const proposedEnd = pointerEnd !== null ? snapToQuarterHour(pointerEnd) : snapToQuarterHour(endValue + deltaMinutes)
-                const clampedEnd = clampToDay(Math.max(minEnd, proposedEnd))
-                const safeEnd = Math.max(minEnd, clampedEnd)
-                handleTaskPlacement(task, snappedStart, safeEnd)
+            if (calc.task || calc.taskId) {
+                const task = calc.task ?? taskMap.get(calc.taskId!)
+                if (task) handleTaskPlacement(task, calc.startMinutes, calc.endMinutes)
             }
         },
     })
@@ -308,33 +377,50 @@ export function HourlyTimeline({ tasks = [], onTaskTimeChange, onTaskUnschedule 
 
     useEffect(() => {
         if (!timelineRef.current || currentOffset === null) return
-
         const scrollPosition = Math.max(0, currentOffset - timelineRef.current.clientHeight / 2)
         timelineRef.current.scrollTop = Math.max(0, scrollPosition)
     }, [currentOffset])
 
-    const handlePrevDay = () => {
-        setSelectedDate((prev) => {
-            const newDate = new Date(prev)
-            newDate.setDate(prev.getDate() - 1)
-            return newDate
-        })
-    }
-
-    const handleNextDay = () => {
-        setSelectedDate((prev) => {
-            const newDate = new Date(prev)
-            newDate.setDate(prev.getDate() + 1)
-            return newDate
-        })
-    }
-
-    const handleToday = () => {
-        const now = new Date()
-        setSelectedDate(new Date(now.getFullYear(), now.getMonth(), now.getDate()))
-    }
+    const handlePrevDay = () => setSelectedDate((prev) => { const d = new Date(prev); d.setDate(prev.getDate() - 1); return d })
+    const handleNextDay = () => setSelectedDate((prev) => { const d = new Date(prev); d.setDate(prev.getDate() + 1); return d })
+    const handleToday = () => { const now = new Date(); setSelectedDate(new Date(now.getFullYear(), now.getMonth(), now.getDate())) }
 
     const shouldHighlight = isOver && active?.data?.current?.type === "task"
+
+    // Determine overlay content
+    const overlayContent = useMemo(() => {
+        if (activeDragState && !activeDragState.isResizing) {
+            const task = activeDragState.task ?? taskMap.get(activeDragState.taskId!)
+            return task ? (
+                <div style={{ width: '240px' }}>
+                    <TimelineTaskBlock
+                        block={{
+                            task: task,
+                            startMinutes: activeDragState.startMinutes,
+                            endMinutes: activeDragState.endMinutes,
+                            column: 0,
+                            columns: 1
+                        }}
+                        rowHeight={effectiveRowHeight}
+                        isOverlay
+                    />
+                </div>
+            ) : null
+        }
+
+        if (activeSidebarTask) {
+            // Render generic card for sidebar drag (not yet snapped)
+            return (
+                <div style={{ width: '240px' }}>
+                    <div className="relative rounded-md border border-border bg-card text-card-foreground shadow-xl p-2.5 flex flex-col gap-1 cursor-grabbing">
+                        <span className="text-xs font-semibold leading-tight truncate">{activeSidebarTask.title}</span>
+                    </div>
+                </div>
+            )
+        }
+
+        return null
+    }, [activeDragState, activeSidebarTask, taskMap, effectiveRowHeight])
 
     return (
         <div className="flex h-full min-h-0 max-h-full flex-col overflow-hidden border bg-card select-none">
@@ -391,18 +477,38 @@ export function HourlyTimeline({ tasks = [], onTaskTimeChange, onTaskUnschedule 
                         <div className="absolute inset-x-0 bottom-0 h-px bg-border" />
 
                         <div className="absolute inset-y-0 left-2 right-2">
-                            {positionedBlocks.map((block) => (
-                                <TimelineTaskBlock
-                                    key={block.task.id}
-                                    block={block}
-                                    rowHeight={effectiveRowHeight}
-                                    onRemove={handleUnschedule}
-                                />
-                            ))}
+                            {positionedBlocks.map((block) => {
+                                // If this is the ghost from dragging...
+                                const isDraggingThis = activeDragState?.taskId === block.task.id
+
+                                return (
+                                    <TimelineTaskBlock
+                                        key={block.task.id}
+                                        block={block}
+                                        rowHeight={effectiveRowHeight}
+                                        onRemove={handleUnschedule}
+                                        isGhost={isDraggingThis && !activeDragState?.isResizing}
+                                    // If resizing, we might want to show it as real but changing size, or ghost. 
+                                    // With current logic, we replace the original with the resized version. 
+                                    // So it looks "real" but moves.
+                                    // "Ghost" style (dashed) is usually for "where it will drop". 
+                                    // For resize, we usually just resize the block.
+                                    // Let's keep isGhost only for moving.
+                                    />
+                                )
+                            })}
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* DragOverlay for smooth dragging visual */}
+            {overlayContent && createPortal(
+                <DragOverlay>
+                    {overlayContent}
+                </DragOverlay>,
+                document.body
+            )}
         </div>
     )
 }

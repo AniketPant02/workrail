@@ -151,7 +151,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
   return (
     <SidebarProvider>
-      <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
+      <DndContext>
         <WorkrailSidebar />
         <SidebarInset>
           <div className="flex h-screen w-full flex-col overflow-hidden">
@@ -182,14 +182,6 @@ export function DashboardShell({ children }: DashboardShellProps) {
             </div>
           </div>
         </SidebarInset>
-        <DragOverlay>
-          {overlayTask ? (
-            <div className="rounded-lg border bg-card px-3 py-2 shadow-lg">
-              <p className="text-sm font-medium">{overlayTask.title}</p>
-              <p className="text-xs text-muted-foreground">Drag to timeline</p>
-            </div>
-          ) : null}
-        </DragOverlay>
       </DndContext>
     </SidebarProvider>
   )
