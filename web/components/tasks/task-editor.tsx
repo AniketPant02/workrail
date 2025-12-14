@@ -6,7 +6,7 @@ import type { Task } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AlertCircle, Zap, Circle, CheckCircle2, FolderClosed, CircleIcon, Clock, CheckCircle } from "lucide-react"
+import { AlertCircle, Zap, Circle, CheckCircle2, FolderClosed, CircleIcon, Clock, CheckCircle, Trash2, Cloud, CloudOff } from "lucide-react"
 import { RichTextEditor } from "@/components/ui/rich-text-editor"
 
 type Folder = {
@@ -17,7 +17,6 @@ type Folder = {
 interface TaskEditorProps {
     task: Task | null
     onChange: (updates: Partial<Task>) => void
-    onSave: () => void
     onDelete: () => void
     isSaving?: boolean
     isDeleting?: boolean
@@ -38,7 +37,7 @@ const priorityConfig = {
 
 const NO_FOLDER_VALUE = "none"
 
-export default function TaskEditor({ task, onChange, onSave, onDelete, isSaving, isDeleting }: TaskEditorProps) {
+export default function TaskEditor({ task, onChange, onDelete, isSaving, isDeleting }: TaskEditorProps) {
     const { data: foldersResponse, isLoading: foldersLoading } = useSWR(task ? "/api/folders" : null, (url) =>
         fetch(url).then((res) => res.json()),
     )
@@ -68,8 +67,29 @@ export default function TaskEditor({ task, onChange, onSave, onDelete, isSaving,
 
     return (
         <div className="flex flex-col h-full min-h-0 bg-background">
-            <div className="border-b border-border/50 px-4 py-2">
+            <div className="border-b border-border/50 px-4 py-2 flex items-center justify-between h-10">
                 <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Details</h2>
+                <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 px-2">
+                        {isSaving ? (
+                            <>
+                                <div className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
+                                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Saving...</span>
+                            </>
+                        ) : (
+                            <span className="text-[10px] text-muted-foreground/50 font-medium uppercase tracking-wider">Saved</span>
+                        )}
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        onClick={onDelete}
+                        disabled={isDeleting}
+                    >
+                        {isDeleting ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <Trash2 className="h-3.5 w-3.5" />}
+                    </Button>
+                </div>
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-3">
@@ -185,19 +205,6 @@ export default function TaskEditor({ task, onChange, onSave, onDelete, isSaving,
                 </div>
             </div>
 
-            <div className="border-t border-border/50 px-4 py-2 flex gap-2 bg-card">
-                <Button
-                    variant="outline"
-                    className="flex-1 text-xs h-7 font-medium bg-transparent"
-                    onClick={onDelete}
-                    disabled={isDeleting}
-                >
-                    {isDeleting ? "Deleting..." : "Delete"}
-                </Button>
-                <Button className="flex-1 text-xs h-7 font-medium" onClick={onSave} disabled={isSaving}>
-                    {isSaving ? "Saving..." : "Save"}
-                </Button>
-            </div>
         </div>
     )
 }
