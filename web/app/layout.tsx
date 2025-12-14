@@ -19,6 +19,13 @@ export const metadata: Metadata = {
     template: "%s | workrail",
   },
   description: "workrail - a monotasking productivity app",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", rel: "icon", type: "image/x-icon" },
+      { url: "/favicon.ico", rel: "shortcut icon", type: "image/x-icon" },
+    ],
+    apple: [{ url: "/apple-icon.png" }],
+  },
 };
 
 export default function RootLayout({
@@ -28,7 +35,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <meta name="apple-mobile-web-app-title" content="workrail" />
+      <head>
+        <meta name="apple-mobile-web-app-title" content="workrail" />
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="shortcut icon" href="/favicon.ico" />
+        <link rel="apple-touch-icon" href="/apple-icon.png" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
