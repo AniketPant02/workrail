@@ -6,7 +6,6 @@ import useSWR from "swr"
 
 import type { Task } from "@/lib/types"
 import { useDraggable } from "@dnd-kit/core"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -17,14 +16,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { ArrowUpDown, Circle, FolderClosed, Trash2, ArrowDown, ArrowRight, ArrowUp, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface TaskListProps {
     tasks: Task[]
     selectedTaskId: string | null
-    onSelectTask: (taskId: string | null) => void // Updated to accept null
+    onSelectTask: (taskId: string | null) => void
     onCreateTask: (title: string) => Promise<void> | void
     onDeleteTask: (taskId: string) => Promise<void> | void
     isCreating?: boolean
@@ -110,16 +108,16 @@ function TaskListItem({ task, selected, onSelect, onDelete, folder }: TaskListIt
                 onSelect(task.id);
             }}
             className={cn(
-                "group relative w-full overflow-hidden rounded-lg border bg-card text-left transition-all cursor-default select-none",
+                "group relative w-full h-auto max-w-full overflow-hidden rounded-lg border bg-card text-left transition-all cursor-default select-none",
                 "hover:border-primary/40 hover:shadow-sm",
-                selected ? "border-primary shadow-sm ring-1 ring-primary/20 bg-accent/10" : "border-border/40",
+                selected ? "border-primary shadow-sm ring-1 ring-primary/20 bg-accent/5" : "border-border/40",
                 isDragging && "ring-2 ring-primary rotate-2 scale-105 z-50 shadow-xl cursor-grabbing"
             )}
         >
             <Button
                 variant="ghost"
                 size="icon"
-                className="absolute right-1 top-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity z-10 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                className="absolute right-1 top-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity z-10 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                 onClick={(e) => {
                     e.stopPropagation()
                     onDelete(task.id)
@@ -127,35 +125,37 @@ function TaskListItem({ task, selected, onSelect, onDelete, folder }: TaskListIt
             >
                 <Trash2 className="h-3 w-3" />
             </Button>
-            <div className="flex flex-col gap-1 p-2.5">
-                <div className="flex items-center gap-2 min-w-0 pr-6">
-                    <span className={cn("flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full", priorityColor)}>
-                        <PriorityIcon className="h-3.5 w-3.5" />
-                    </span>
-                    <span className={cn("text-sm font-medium leading-tight truncate", selected ? "text-foreground" : "text-foreground/90")}>
-                        {task.title}
-                    </span>
-                    {hasDescription && (
-                        <div className="shrink-0 text-muted-foreground flex items-center">
-                            <svg width="10" height="10" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-3 w-3"><path d="M1 2C1 1.44772 1.44772 1 2 1H13C13.5523 1 14 1.44772 14 2V13C14 13.5523 13.5523 14 13 14H2C1.44772 14 1 13.5523 1 13V2ZM2 2V13H13V2H2Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path><path d="M4 6.25C4 6.11193 4.11193 6 4.25 6H10.75C10.8881 6 11 6.11193 11 6.25V6.75C11 6.88807 10.8881 7 10.75 7H4.25C4.11193 7 4 6.88807 4 6.75V6.25ZM4 8.25C4 8.11193 4.11193 8 4.25 8H10.75C10.8881 8 11 8.11193 11 8.25V8.75C11 8.88807 10.8881 9 10.75 9H4.25C4.11193 9 4 8.88807 4 8.75V8.25ZM4.25 10C4.11193 10 4 10.1119 4 10.25V10.75C4 10.8881 4.11193 11 4.25 11H8.75C8.88807 11 9 10.8881 9 10.75V10.25C9 10.1119 8.88807 10 8.75 10H4.25Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
-                        </div>
-                    )}
+            <div className="flex items-start gap-2.5 p-2.5">
+                <div className={cn("flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent/10 mt-0.5", priorityColor)}>
+                    <PriorityIcon className="h-3 w-3" />
                 </div>
 
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                    {showFolder && (
-                        <div className="flex items-center gap-1 min-w-0 max-w-[120px]">
-                            <FolderClosed className={cn("h-3 w-3 shrink-0", folderColor)} />
-                            <span className="truncate opacity-80">{folderLabel}</span>
-                        </div>
-                    )}
-                    {showFolder && dueDateLabel && <span className="opacity-40">•</span>}
-                    {dueDateLabel && (
-                        <div className={cn("flex items-center gap-1",
-                            // Highlight urgent dates if needed, e.g.
-                            // task.dueDate && new Date(task.dueDate) < new Date() ? "text-red-500" : ""
-                        )}>
-                            <span>{dueDateLabel}</span>
+                <div className="flex flex-col gap-1 min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 min-w-0 pr-5">
+                        <span className={cn("text-sm font-medium leading-none truncate", selected ? "text-foreground" : "text-foreground/90")}>
+                            {task.title}
+                        </span>
+                        {hasDescription && (
+                            <div className="shrink-0 text-muted-foreground flex items-center" title="Has description">
+                                <svg width="9" height="9" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-3 w-3"><path d="M1 2C1 1.44772 1.44772 1 2 1H13C13.5523 1 14 1.44772 14 2V13C14 13.5523 13.5523 14 13 14H2C1.44772 14 1 13.5523 1 13V2ZM2 2V13H13V2H2Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path><path d="M4 6.25C4 6.11193 4.11193 6 4.25 6H10.75C10.8881 6 11 6.11193 11 6.25V6.75C11 6.88807 10.8881 7 10.75 7H4.25C4.11193 7 4 6.88807 4 6.75V6.25ZM4 8.25C4 8.11193 4.11193 8 4.25 8H10.75C10.8881 8 11 8.11193 11 8.25V8.75C11 8.88807 10.8881 9 10.75 9H4.25C4.11193 9 4 8.88807 4 8.75V8.25ZM4.25 10C4.11193 10 4 10.1119 4 10.25V10.75C4 10.8881 4.11193 11 4.25 11H8.75C8.88807 11 9 10.8881 9 10.75V10.25C9 10.1119 8.88807 10 8.75 10H4.25Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
+                            </div>
+                        )}
+                    </div>
+
+                    {(showFolder || dueDateLabel) && (
+                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground/80 h-4">
+                            {showFolder && (
+                                <div className="flex items-center gap-1.5 min-w-0 max-w-[120px] bg-accent/5 px-1 py-0 rounded-[3px]">
+                                    <FolderClosed className={cn("h-2.5 w-2.5 shrink-0", folderColor)} />
+                                    <span className="truncate font-medium opacity-90 leading-none">{folderLabel}</span>
+                                </div>
+                            )}
+                            {dueDateLabel && (
+                                <div className={cn("flex items-center gap-1 shrink-0")}>
+                                    <span className="leading-none">•</span>
+                                    <span className="leading-none">{dueDateLabel}</span>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -288,7 +288,7 @@ export default function TaskList({
 
             <ScrollArea className="flex-1 min-h-0">
                 <div
-                    className="flex min-h-full flex-col justify-start gap-2 px-3 py-3 sm:px-4 sm:py-4 cursor-default"
+                    className="flex flex-col min-h-full gap-2 px-5 py-4 sm:px-4 sm:py-4 cursor-default"
                     onClick={() => onSelectTask(null)}
                 >
                     {tasks.length === 0 ? (

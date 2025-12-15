@@ -198,7 +198,7 @@ export default function TaskCenter() {
 
   return (
     <div className="flex h-full min-h-0 bg-background">
-      <div className="w-2/5 min-w-0 min-h-0">
+      <div className="w-[380px] min-w-0 min-h-0 shrink-0">
         <TaskList
           tasks={tasks}
           selectedTaskId={selectedTaskId}
