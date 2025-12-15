@@ -2,7 +2,7 @@
 
 import { ReactNode, useCallback, useMemo, useState } from "react"
 import useSWR, { useSWRConfig } from "swr"
-import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core"
+import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent, useSensor, useSensors, PointerSensor, KeyboardSensor, MouseSensor, TouchSensor } from "@dnd-kit/core"
 import type { Task } from "@/lib/types"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -49,6 +49,21 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const handleDragCancel = useCallback(() => {
     setOverlayTask(null)
   }, [])
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor)
+  )
 
   const handleTaskTimeChange = useCallback(
     async (task: Task, startAt: Date, endAt: Date) => {
@@ -151,7 +166,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
   return (
     <SidebarProvider>
-      <DndContext>
+      <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel} sensors={sensors}>
         <WorkrailSidebar />
         <SidebarInset>
           <div className="flex h-screen w-full flex-col overflow-hidden">

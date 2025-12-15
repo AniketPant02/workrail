@@ -18,13 +18,13 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { AlertCircle, ArrowUpDown, CheckCircle2, Circle, Zap } from "lucide-react"
+import { AlertCircle, ArrowUpDown, CheckCircle2, Circle, Zap, FolderClosed } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface TaskListProps {
     tasks: Task[]
     selectedTaskId: string | null
-    onSelectTask: (taskId: string) => void
+    onSelectTask: (taskId: string | null) => void // Updated to accept null
     onCreateTask: (title: string) => Promise<void> | void
     isCreating?: boolean
 }
@@ -84,11 +84,13 @@ function TaskListItem({ task, selected, onSelect, folder }: TaskListItemProps) {
     const PriorityIcon = priorityIcons[task.priority]?.icon || Circle
     const priorityColor = priorityIcons[task.priority]?.color || "text-slate-400"
     const parsedDueDate = parseDueDate(task.dueDate)
-    const dueDateLabel = parsedDueDate ? formatDueDate(parsedDueDate) : "No due date"
+    const dueDateLabel = parsedDueDate ? formatDueDate(parsedDueDate) : null
     const showFolder = task.folderId !== null
     const folderLabel = folder?.name ?? task.folderId ?? "Folder"
     const folderColor = folder?.color ?? "text-muted-foreground"
-    const shouldShowTitleTooltip = task.title.trim().length > 32
+
+    // Check if description exists and is not empty/just whitespace
+    const hasDescription = task.description && task.description.trim().length > 0;
 
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
         id: `task-${task.id}`,
@@ -96,56 +98,58 @@ function TaskListItem({ task, selected, onSelect, folder }: TaskListItemProps) {
     })
 
     return (
-        <button
-            type="button"
+        <div
             ref={setNodeRef}
-            style={isDragging ? { opacity: 0.85 } : undefined}
-            onClick={() => onSelect(task.id)}
-            aria-pressed={selected}
+            style={isDragging ? { opacity: 0.5 } : undefined}
+            {...attributes}
+            {...listeners}
+            onClick={(e) => {
+                e.stopPropagation();
+                onSelect(task.id);
+            }}
             className={cn(
-                "group relative w-full overflow-hidden rounded-xl border bg-card/80 text-left shadow-xs transition-all",
-                "hover:border-primary/40 hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1",
-                selected ? "border-primary shadow-sm ring-1 ring-primary/20" : "border-border/70",
+                "group relative w-full overflow-hidden rounded-lg border bg-card text-left transition-all cursor-default select-none",
+                "hover:border-primary/40 hover:shadow-sm",
+                selected ? "border-primary shadow-sm ring-1 ring-primary/20 bg-accent/10" : "border-border/40",
+                isDragging && "ring-2 ring-primary rotate-2 scale-105 z-50 shadow-xl cursor-grabbing"
             )}
         >
-            <div className="grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 sm:gap-4">
-                <div className="min-w-0 space-y-1.5">
-                    <p className="line-clamp-2 text-sm font-medium leading-tight text-foreground wrap-break-word">{task.title}</p>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        {showFolder && (
-                            <Badge variant="outline" className={cn("max-w-[180px] truncate bg-muted/60 text-[11px] font-medium transition-colors", folderColor)}>
-                                {folderLabel}
-                            </Badge>
-                        )}
-                        <Badge variant="secondary" className="text-[11px] font-medium">
-                            {dueDateLabel}
-                        </Badge>
+            <div className="flex flex-col gap-1.5 p-3">
+                <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                        <span className={cn("mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full", priorityColor)}>
+                            <PriorityIcon className="h-3.5 w-3.5" />
+                        </span>
+                        <span className={cn("text-sm font-medium leading-none truncate", selected ? "text-foreground" : "text-foreground/90")}>
+                            {task.title}
+                        </span>
                     </div>
+                    {hasDescription && (
+                        <div className="shrink-0 text-muted-foreground">
+                            <svg width="10" height="10" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-3 w-3"><path d="M1 2C1 1.44772 1.44772 1 2 1H13C13.5523 1 14 1.44772 14 2V13C14 13.5523 13.5523 14 13 14H2C1.44772 14 1 13.5523 1 13V2ZM2 2V13H13V2H2Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path><path d="M4 6.25C4 6.11193 4.11193 6 4.25 6H10.75C10.8881 6 11 6.11193 11 6.25V6.75C11 6.88807 10.8881 7 10.75 7H4.25C4.11193 7 4 6.88807 4 6.75V6.25ZM4 8.25C4 8.11193 4.11193 8 4.25 8H10.75C10.8881 8 11 8.11193 11 8.25V8.75C11 8.88807 10.8881 9 10.75 9H4.25C4.11193 9 4 8.88807 4 8.75V8.25ZM4.25 10C4.11193 10 4 10.1119 4 10.25V10.75C4 10.8881 4.11193 11 4.25 11H8.75C8.88807 11 9 10.8881 9 10.75V10.25C9 10.1119 8.88807 10 8.75 10H4.25Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
+                        </div>
+                    )}
                 </div>
-                <div className="flex items-center gap-2 sm:gap-3">
-                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-muted/60 text-muted-foreground">
-                        <PriorityIcon className={cn("h-4 w-4 shrink-0", priorityColor)} />
-                    </span>
-                    <div
-                        className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background/70 text-muted-foreground shadow-xs transition hover:bg-muted/70 cursor-grab active:cursor-grabbing"
-                        {...attributes}
-                        {...listeners}
-                        onClick={(e) => e.stopPropagation()}
-                        title="Drag to timeline"
-                        aria-label="Drag to timeline"
-                    >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <circle cx="8" cy="6" r="1" />
-                            <circle cx="8" cy="12" r="1" />
-                            <circle cx="8" cy="18" r="1" />
-                            <circle cx="16" cy="6" r="1" />
-                            <circle cx="16" cy="12" r="1" />
-                            <circle cx="16" cy="18" r="1" />
-                        </svg>
-                    </div>
+
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                    {showFolder && (
+                        <div className="flex items-center gap-1 min-w-0 max-w-[120px]">
+                            <FolderClosed className={cn("h-3 w-3 shrink-0", folderColor)} />
+                            <span className="truncate opacity-80">{folderLabel}</span>
+                        </div>
+                    )}
+                    {showFolder && dueDateLabel && <span className="opacity-40">•</span>}
+                    {dueDateLabel && (
+                        <div className={cn("flex items-center gap-1",
+                            // Highlight urgent dates if needed, e.g.
+                            // task.dueDate && new Date(task.dueDate) < new Date() ? "text-red-500" : ""
+                        )}>
+                            <span>{dueDateLabel}</span>
+                        </div>
+                    )}
                 </div>
             </div>
-        </button>
+        </div>
     )
 }
 
@@ -271,7 +275,10 @@ export default function TaskList({
             </div>
 
             <ScrollArea className="flex-1 min-h-0">
-                <div className="flex min-h-full flex-col justify-center gap-3 px-3 py-3 sm:px-4 sm:py-4">
+                <div
+                    className="flex min-h-full flex-col justify-start gap-2 px-3 py-3 sm:px-4 sm:py-4 cursor-default"
+                    onClick={() => onSelectTask(null)}
+                >
                     {tasks.length === 0 ? (
                         <div className="flex items-center justify-center py-8">
                             <p className="text-center text-xs text-muted-foreground">No tasks yet</p>
