@@ -160,6 +160,42 @@ export default function TaskCenter() {
     }
   }
 
+  const handleDeleteTaskById = async (taskId: string) => {
+    try {
+      // Optimistic update could go here, but for now we'll just wait for the API
+      // To prevent jitter, we could mutate immediately
+      await mutate((current: any) => {
+        if (!current?.data) return current
+        return {
+          ...current,
+          data: current.data.filter((t: Task) => t.id !== taskId),
+        }
+      }, { revalidate: false })
+
+
+      const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" })
+
+      if (!res.ok) {
+        // dynamic revalidation will happen on next focus/interval if we don't manually trigger it, 
+        // but let's revalidate to be safe if it failed
+        await mutate()
+        console.error("Failed to delete task", await res.text())
+        return
+      }
+
+      if (selectedTaskId === taskId) {
+        setSelectedTaskId(null)
+        setDraftTask(null)
+      }
+
+      // Final revalidation to ensure sync
+      await mutate()
+    } catch (error) {
+      console.error("Failed to delete task", error)
+      await mutate()
+    }
+  }
+
   return (
     <div className="flex h-full min-h-0 bg-background">
       <div className="w-2/5 min-w-0 min-h-0">
@@ -168,6 +204,7 @@ export default function TaskCenter() {
           selectedTaskId={selectedTaskId}
           onSelectTask={setSelectedTaskId}
           onCreateTask={handleCreateTask}
+          onDeleteTask={handleDeleteTaskById}
           isCreating={isCreating}
         />
       </div>

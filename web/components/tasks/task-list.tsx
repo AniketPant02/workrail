@@ -18,7 +18,7 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { AlertCircle, ArrowUpDown, CheckCircle2, Circle, Zap, FolderClosed } from "lucide-react"
+import { ArrowUpDown, Circle, FolderClosed, Trash2, ArrowDown, ArrowRight, ArrowUp, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface TaskListProps {
@@ -26,14 +26,15 @@ interface TaskListProps {
     selectedTaskId: string | null
     onSelectTask: (taskId: string | null) => void // Updated to accept null
     onCreateTask: (title: string) => Promise<void> | void
+    onDeleteTask: (taskId: string) => Promise<void> | void
     isCreating?: boolean
 }
 
 const priorityIcons = {
-    low: { icon: Circle, color: "text-slate-400" },
-    medium: { icon: CheckCircle2, color: "text-yellow-600" },
-    high: { icon: AlertCircle, color: "text-orange-600" },
-    urgent: { icon: Zap, color: "text-red-600" },
+    low: { icon: ArrowDown, color: "text-slate-500" },
+    medium: { icon: ArrowRight, color: "text-blue-500" },
+    high: { icon: ArrowUp, color: "text-orange-500" },
+    urgent: { icon: AlertTriangle, color: "text-red-600" },
 }
 
 const priorityRank: Record<Task["priority"], number> = {
@@ -77,10 +78,11 @@ interface TaskListItemProps {
     task: Task
     selected: boolean
     onSelect: (taskId: string) => void
+    onDelete: (taskId: string) => void
     folder?: Folder
 }
 
-function TaskListItem({ task, selected, onSelect, folder }: TaskListItemProps) {
+function TaskListItem({ task, selected, onSelect, onDelete, folder }: TaskListItemProps) {
     const PriorityIcon = priorityIcons[task.priority]?.icon || Circle
     const priorityColor = priorityIcons[task.priority]?.color || "text-slate-400"
     const parsedDueDate = parseDueDate(task.dueDate)
@@ -114,18 +116,27 @@ function TaskListItem({ task, selected, onSelect, folder }: TaskListItemProps) {
                 isDragging && "ring-2 ring-primary rotate-2 scale-105 z-50 shadow-xl cursor-grabbing"
             )}
         >
-            <div className="flex flex-col gap-1.5 p-3">
-                <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                        <span className={cn("mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full", priorityColor)}>
-                            <PriorityIcon className="h-3.5 w-3.5" />
-                        </span>
-                        <span className={cn("text-sm font-medium leading-none truncate", selected ? "text-foreground" : "text-foreground/90")}>
-                            {task.title}
-                        </span>
-                    </div>
+            <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity z-10 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                onClick={(e) => {
+                    e.stopPropagation()
+                    onDelete(task.id)
+                }}
+            >
+                <Trash2 className="h-3 w-3" />
+            </Button>
+            <div className="flex flex-col gap-1 p-2.5">
+                <div className="flex items-center gap-2 min-w-0 pr-6">
+                    <span className={cn("flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full", priorityColor)}>
+                        <PriorityIcon className="h-3.5 w-3.5" />
+                    </span>
+                    <span className={cn("text-sm font-medium leading-tight truncate", selected ? "text-foreground" : "text-foreground/90")}>
+                        {task.title}
+                    </span>
                     {hasDescription && (
-                        <div className="shrink-0 text-muted-foreground">
+                        <div className="shrink-0 text-muted-foreground flex items-center">
                             <svg width="10" height="10" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-3 w-3"><path d="M1 2C1 1.44772 1.44772 1 2 1H13C13.5523 1 14 1.44772 14 2V13C14 13.5523 13.5523 14 13 14H2C1.44772 14 1 13.5523 1 13V2ZM2 2V13H13V2H2Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path><path d="M4 6.25C4 6.11193 4.11193 6 4.25 6H10.75C10.8881 6 11 6.11193 11 6.25V6.75C11 6.88807 10.8881 7 10.75 7H4.25C4.11193 7 4 6.88807 4 6.75V6.25ZM4 8.25C4 8.11193 4.11193 8 4.25 8H10.75C10.8881 8 11 8.11193 11 8.25V8.75C11 8.88807 10.8881 9 10.75 9H4.25C4.11193 9 4 8.88807 4 8.75V8.25ZM4.25 10C4.11193 10 4 10.1119 4 10.25V10.75C4 10.8881 4.11193 11 4.25 11H8.75C8.88807 11 9 10.8881 9 10.75V10.25C9 10.1119 8.88807 10 8.75 10H4.25Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
                         </div>
                     )}
@@ -158,6 +169,7 @@ export default function TaskList({
     selectedTaskId,
     onSelectTask,
     onCreateTask,
+    onDeleteTask,
     isCreating,
 }: TaskListProps) {
     const [newTaskTitle, setNewTaskTitle] = useState("")
@@ -292,6 +304,7 @@ export default function TaskList({
                                     task={task}
                                     selected={selectedTaskId === task.id}
                                     onSelect={onSelectTask}
+                                    onDelete={onDeleteTask}
                                     folder={folder}
                                 />
                             )

@@ -6,7 +6,7 @@ import type { Task } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AlertCircle, Zap, Circle, CheckCircle2, FolderClosed, CircleIcon, Clock, CheckCircle, Trash2, Cloud, CloudOff } from "lucide-react"
+import { FolderClosed, CircleIcon, Clock, CheckCircle, Trash2, Cloud, CloudOff, ArrowDown, ArrowRight, ArrowUp, AlertTriangle } from "lucide-react"
 import { RichTextEditor } from "@/components/ui/rich-text-editor"
 import { cn } from "@/lib/utils"
 
@@ -31,10 +31,10 @@ const statusConfig = {
 }
 
 const priorityConfig = {
-    low: { color: "text-slate-400", bgColor: "bg-slate-50 dark:bg-slate-950", icon: Circle, label: "Low" },
-    medium: { color: "text-yellow-600", bgColor: "bg-amber-50 dark:bg-amber-950", icon: CheckCircle2, label: "Medium" },
-    high: { color: "text-orange-600", bgColor: "bg-orange-50 dark:bg-orange-950", icon: AlertCircle, label: "High" },
-    urgent: { color: "text-red-600", bgColor: "bg-red-50 dark:bg-red-950", icon: Zap, label: "Urgent" },
+    low: { color: "text-slate-500", bgColor: "bg-slate-50 dark:bg-slate-950", icon: ArrowDown, label: "Low" },
+    medium: { color: "text-blue-500", bgColor: "bg-blue-50 dark:bg-blue-950", icon: ArrowRight, label: "Medium" },
+    high: { color: "text-orange-500", bgColor: "bg-orange-50 dark:bg-orange-950", icon: ArrowUp, label: "High" },
+    urgent: { color: "text-red-600", bgColor: "bg-red-50 dark:bg-red-950", icon: AlertTriangle, label: "Urgent" },
 }
 
 const NO_FOLDER_VALUE = "none"
