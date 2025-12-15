@@ -41,6 +41,13 @@ import {
   // AlertDialogTrigger export was present in original file
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import { useEffect, useRef } from "react";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -48,7 +55,26 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 type Folder = {
   id: string;
   name: string;
+  color?: string | null;
 };
+
+const folderColors = [
+  { name: "Deafult", value: "text-muted-foreground" },
+  { name: "Red", value: "text-red-500" },
+  { name: "Orange", value: "text-orange-500" },
+  { name: "Amber", value: "text-amber-500" },
+  { name: "Green", value: "text-green-500" },
+  { name: "Emerald", value: "text-emerald-500" },
+  { name: "Teal", value: "text-teal-500" },
+  { name: "Cyan", value: "text-cyan-500" },
+  { name: "Blue", value: "text-blue-500" },
+  { name: "Indigo", value: "text-indigo-500" },
+  { name: "Violet", value: "text-violet-500" },
+  { name: "Purple", value: "text-purple-500" },
+  { name: "Fuchsia", value: "text-fuchsia-500" },
+  { name: "Pink", value: "text-pink-500" },
+  { name: "Rose", value: "text-rose-500" },
+];
 
 const navSections = [
   {
@@ -324,6 +350,20 @@ function FolderRow({ folder, href, isActive, onDeleted, onRenamed }: FolderRowPr
     setIsRenaming(false);
   }, [folder.id, folder.name, renameValue, onRenamed]);
 
+  const handleColorChange = useCallback(async (color: string) => {
+    const colorToSave = color === "text-muted-foreground" ? null : color;
+
+    const res = await fetch(`/api/folders/${folder.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ color: colorToSave }),
+    });
+
+    if (res.ok) {
+      await onRenamed();
+    }
+  }, [folder.id, onRenamed]);
+
   const handleConfirmDelete = useCallback(async () => {
     const res = await fetch(`/api/folders/${folder.id}`, {
       method: "DELETE",
@@ -356,9 +396,6 @@ function FolderRow({ folder, href, isActive, onDeleted, onRenamed }: FolderRowPr
               }
             }}
             onBlur={() => {
-              // Determine UX: Should we save on blur?
-              // Often better to save if valid, or just cancel.
-              // Let's save on blur for convenience.
               handleConfirmRename();
             }}
             className="w-full bg-transparent text-sm outline-none"
@@ -372,10 +409,43 @@ function FolderRow({ folder, href, isActive, onDeleted, onRenamed }: FolderRowPr
     <AlertDialog open={open} onOpenChange={setOpen}>
       <SidebarMenuItem>
         <SidebarMenuButton asChild tooltip={folder.name} isActive={isActive}>
-          <Link href={href} className="flex min-w-0 items-center gap-2">
-            <FolderClosed className="size-4 shrink-0" />
-            <span className="truncate">{folder.name}</span>
-          </Link>
+          <div className="flex w-full items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm p-0.5 -ml-1.5 hover:bg-sidebar-accent transition-colors">
+                  <FolderClosed className={cn("size-4 shrink-0 transition-colors", folder.color || "text-muted-foreground")} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48 p-2">
+                <div className="grid grid-cols-5 gap-1">
+                  {folderColors.map((color) => (
+                    <DropdownMenuItem
+                      key={color.value}
+                      className="p-0.5 focus:bg-transparent"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleColorChange(color.value);
+                      }}
+                    >
+                      <div
+                        className={cn(
+                          "size-6 rounded-md border flex items-center justify-center cursor-pointer hover:scale-110 transition-transform",
+                          color.value === "text-muted-foreground" ? "bg-muted border-border" : "bg-card border-transparent",
+                        )}
+                        title={color.name}
+                      >
+                        <FolderClosed className={cn("size-4", color.value)} />
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Link href={href} className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden outline-none">
+              <span className="truncate">{folder.name}</span>
+            </Link>
+          </div>
         </SidebarMenuButton>
 
         {/* Edit Action */}
@@ -397,6 +467,9 @@ function FolderRow({ folder, href, isActive, onDeleted, onRenamed }: FolderRowPr
             showOnHover
             aria-label={`Delete folder ${folder.name}`}
             className="hover:bg-transparent hover:text-red-500 text-muted-foreground"
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </SidebarMenuAction>

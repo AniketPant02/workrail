@@ -100,6 +100,7 @@ export const folder = pgTable(
   {
     id: text("id").primaryKey(),
     name: text("name").notNull(),
+    color: text("color"),
 
     userId: text("user_id")
       .notNull()

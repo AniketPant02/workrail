@@ -8,10 +8,12 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertCircle, Zap, Circle, CheckCircle2, FolderClosed, CircleIcon, Clock, CheckCircle, Trash2, Cloud, CloudOff } from "lucide-react"
 import { RichTextEditor } from "@/components/ui/rich-text-editor"
+import { cn } from "@/lib/utils"
 
 type Folder = {
     id: string
     name: string
+    color?: string | null
 }
 
 interface TaskEditorProps {
@@ -174,16 +176,28 @@ export default function TaskEditor({ task, onChange, onDelete, isSaving, isDelet
                                 disabled={foldersLoading}
                             >
                                 <SelectTrigger className="text-sm h-7 border-border/50 focus-visible:ring-offset-0">
-                                    <SelectValue placeholder={foldersLoading ? "Loading..." : (selectedFolder?.name ?? "No project")} />
+                                    <SelectValue placeholder={foldersLoading ? "Loading..." : "No project"}>
+                                        {selectedFolder ? (
+                                            <div className="flex items-center gap-1.5">
+                                                <FolderClosed className={cn("h-3 w-3", selectedFolder.color || "text-muted-foreground")} />
+                                                <span className="text-xs">{selectedFolder.name}</span>
+                                            </div>
+                                        ) : (
+                                            <span className="text-muted-foreground">No project</span>
+                                        )}
+                                    </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value={NO_FOLDER_VALUE}>
-                                        <span className="text-xs">No project</span>
+                                        <div className="flex items-center gap-1.5">
+                                            <CloudOff className="h-3 w-3 text-muted-foreground" />
+                                            <span className="text-xs">No project</span>
+                                        </div>
                                     </SelectItem>
                                     {folderOptions.map((folder) => (
                                         <SelectItem key={folder.id} value={folder.id}>
                                             <div className="flex items-center gap-1.5">
-                                                <FolderClosed className="h-3 w-3 text-muted-foreground" />
+                                                <FolderClosed className={cn("h-3 w-3", folder.color || "text-muted-foreground")} />
                                                 <span className="text-xs">{folder.name}</span>
                                             </div>
                                         </SelectItem>

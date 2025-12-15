@@ -35,6 +35,7 @@ export async function createFolderForUser(
     userId: string,
     input: {
         name: string;
+        color?: string;
     },
 ) {
     const [row] = await db
@@ -42,6 +43,7 @@ export async function createFolderForUser(
         .values({
             id: nanoid(),
             name: input.name,
+            color: input.color ?? null,
             userId,
         })
         .returning();
@@ -54,12 +56,16 @@ export async function updateFolderById(
     userId: string,
     input: {
         name?: string;
+        color?: string;
     },
 ) {
     const updateValues: Partial<typeof folder.$inferInsert> = {};
 
     if (input.name !== undefined) {
         updateValues.name = input.name;
+    }
+    if (input.color !== undefined) {
+        updateValues.color = input.color;
     }
 
     const [row] = await db

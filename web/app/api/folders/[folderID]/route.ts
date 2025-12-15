@@ -38,13 +38,17 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     }
 
     const body = await req.json();
-    const { name } = body;
+    const { name, color } = body;
 
-    if (!name) {
-        return NextResponse.json({ error: "Name is required" }, { status: 400 });
+    if (!name && !color) {
+        return NextResponse.json({ error: "No fields to update" }, { status: 400 });
     }
 
-    const updated = await updateFolderById(folderID, session.user.id, { name });
+    const input: { name?: string; color?: string } = {};
+    if (name) input.name = name;
+    if (color) input.color = color;
+
+    const updated = await updateFolderById(folderID, session.user.id, input);
 
     if (!updated) {
         return NextResponse.json({ error: "Folder not found" }, { status: 404 });

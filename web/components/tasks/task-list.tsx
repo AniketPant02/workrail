@@ -48,6 +48,7 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json())
 type Folder = {
     id: string
     name: string
+    color?: string | null
 }
 
 const formatDueDate = (date: Date) => {
@@ -76,16 +77,17 @@ interface TaskListItemProps {
     task: Task
     selected: boolean
     onSelect: (taskId: string) => void
-    folderName?: string
+    folder?: Folder
 }
 
-function TaskListItem({ task, selected, onSelect, folderName }: TaskListItemProps) {
+function TaskListItem({ task, selected, onSelect, folder }: TaskListItemProps) {
     const PriorityIcon = priorityIcons[task.priority]?.icon || Circle
     const priorityColor = priorityIcons[task.priority]?.color || "text-slate-400"
     const parsedDueDate = parseDueDate(task.dueDate)
     const dueDateLabel = parsedDueDate ? formatDueDate(parsedDueDate) : "No due date"
     const showFolder = task.folderId !== null
-    const folderLabel = folderName ?? task.folderId ?? "Folder"
+    const folderLabel = folder?.name ?? task.folderId ?? "Folder"
+    const folderColor = folder?.color ?? "text-muted-foreground"
     const shouldShowTitleTooltip = task.title.trim().length > 32
 
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -111,7 +113,7 @@ function TaskListItem({ task, selected, onSelect, folderName }: TaskListItemProp
                     <p className="line-clamp-2 text-sm font-medium leading-tight text-foreground wrap-break-word">{task.title}</p>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         {showFolder && (
-                            <Badge variant="outline" className="max-w-[180px] truncate bg-muted/60 text-[11px] font-medium">
+                            <Badge variant="outline" className={cn("max-w-[180px] truncate bg-muted/60 text-[11px] font-medium transition-colors", folderColor)}>
                                 {folderLabel}
                             </Badge>
                         )}
@@ -159,7 +161,7 @@ export default function TaskList({
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
     const { data: foldersResponse } = useSWR("/api/folders", fetcher)
     const folders: Folder[] = foldersResponse?.data ?? []
-    const folderMap = useMemo(() => new Map(folders.map((f) => [f.id, f.name])), [folders])
+    const folderMap = useMemo(() => new Map(folders.map((f) => [f.id, f])), [folders])
     const sortedTasks = useMemo(() => {
         const originalOrder = new Map(tasks.map((task, index) => [task.id, index]))
 
@@ -276,14 +278,14 @@ export default function TaskList({
                         </div>
                     ) : (
                         sortedTasks.map((task) => {
-                            const folderName = task.folderId ? folderMap.get(task.folderId) : undefined
+                            const folder = task.folderId ? folderMap.get(task.folderId) : undefined
                             return (
                                 <TaskListItem
                                     key={task.id}
                                     task={task}
                                     selected={selectedTaskId === task.id}
                                     onSelect={onSelectTask}
-                                    folderName={folderName}
+                                    folder={folder}
                                 />
                             )
                         })

@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => null);
     const name = typeof body?.name === "string" ? body.name.trim() : "";
+    const color = typeof body?.color === "string" ? body.color : undefined;
 
     if (!name) {
         return NextResponse.json(
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
         );
     }
 
-    const folder = await createFolderForUser(session.user.id, { name });
+    const folder = await createFolderForUser(session.user.id, { name, color });
 
     return NextResponse.json({ data: folder }, { status: 201 });
 }
