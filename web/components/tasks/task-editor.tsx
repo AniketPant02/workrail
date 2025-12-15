@@ -77,7 +77,7 @@ export default function TaskEditor({ task, onChange, onDelete, isSaving, isDelet
                                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Saving...</span>
                             </>
                         ) : (
-                            <span className="text-[10px] text-muted-foreground/50 font-medium uppercase tracking-wider">Saved</span>
+                            <span className="text-[10px] text-muted-foreground/50 font-medium uppercase tracking-wider animate-in fade-in duration-500">Saved</span>
                         )}
                     </div>
                     <Button

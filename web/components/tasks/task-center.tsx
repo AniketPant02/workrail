@@ -115,11 +115,15 @@ export default function TaskCenter() {
         endAt: taskToSave.endAt ? new Date(taskToSave.endAt).toISOString() : null,
       }
 
-      const res = await fetch(`/api/tasks/${taskToSave.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
+      // Ensure "Saving..." shows for at least 1 second for better UX
+      const [res] = await Promise.all([
+        fetch(`/api/tasks/${taskToSave.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }),
+        new Promise((resolve) => setTimeout(resolve, 1000)),
+      ])
 
       if (!res.ok) {
         console.error("Failed to update task", await res.text())
