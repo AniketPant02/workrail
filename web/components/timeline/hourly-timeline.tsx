@@ -48,6 +48,14 @@ export function HourlyTimeline({ tasks = [], onTaskTimeChange, onTaskUnschedule 
         return new Date(now.getFullYear(), now.getMonth(), now.getDate())
     })
 
+    const [now, setNow] = useState<Date | null>(null)
+
+    useEffect(() => {
+        setNow(new Date())
+        const interval = setInterval(() => setNow(new Date()), 60000)
+        return () => clearInterval(interval)
+    }, [])
+
     // Local Optimistic State
     const [optimisticTasks, setOptimisticTasks] = useState<Task[]>(tasks)
 
@@ -90,12 +98,11 @@ export function HourlyTimeline({ tasks = [], onTaskTimeChange, onTaskUnschedule 
         })
     }, [tasks])
 
-    const isToday = selectedDate.toDateString() === new Date().toDateString()
-    const currentTime = new Date()
-    const currentMinutes = minutesSinceMidnight(currentTime)
+    const isToday = now ? selectedDate.toDateString() === now.toDateString() : false
+    const currentMinutes = now ? minutesSinceMidnight(now) : 0
     const effectiveRowHeight = rowHeight || HOUR_HEIGHT
     const pixelsPerMinute = effectiveRowHeight / 60
-    const currentOffset = isToday ? currentMinutes * pixelsPerMinute + VERTICAL_PADDING : null
+    const currentOffset = isToday && now ? currentMinutes * pixelsPerMinute + VERTICAL_PADDING : null
 
     const taskMap = useMemo(() => new Map((optimisticTasks ?? []).map((task) => [task.id, task])), [optimisticTasks])
 
