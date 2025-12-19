@@ -70,13 +70,6 @@ export function LoginForm({
           <p className="text-xs text-muted-foreground text-center">Email and password authentication coming soon</p>
         </div>
       </FieldGroup>
-
-      <div className="text-center text-xs text-muted-foreground">
-        Don't have an account?{" "}
-        <a href="/sign-up" className="font-medium text-foreground hover:underline transition-colors">
-          Sign up
-        </a>
-      </div>
     </form>
   );
 }
