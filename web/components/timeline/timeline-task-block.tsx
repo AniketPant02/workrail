@@ -11,10 +11,11 @@ const MIN_DURATION_MINUTES = 15
 const LABEL_OFFSET_PX = 40
 const COLUMN_GAP_PX = 6
 
-const formatTime = (hour: number, minute: number) => {
+const formatTime = (hour: number, minute: number, includeAmPm = true) => {
     const isPM = hour >= 12
     const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
     const ampm = isPM ? "PM" : "AM"
+    if (!includeAmPm) return `${displayHour}:${minute.toString().padStart(2, "0")}`
     return `${displayHour}:${minute.toString().padStart(2, "0")} ${ampm}`
 }
 
@@ -99,6 +100,8 @@ export function TimelineTaskBlock({ block, rowHeight, onRemove, isOverlay, isGho
     const endHour = Math.floor(block.endMinutes / 60)
     const endMinute = block.endMinutes % 60
 
+    const isCompact = (block.endMinutes - block.startMinutes) <= 30
+
     // Style logic
     // Overlay: The floating card. Solid, styled like a task.
     // Ghost (or Dragging Original): The snap indicator. Dashed, faint.
@@ -148,11 +151,15 @@ export function TimelineTaskBlock({ block, rowHeight, onRemove, isOverlay, isGho
                     <X className="h-3.5 w-3.5" />
                 </button>
             )}
-            <div className={cn("flex flex-col gap-1 p-2.5 h-full", isOverlay && "items-start")}>
-                <div className="flex-1 flex flex-col gap-0.5 min-w-0">
+            <div className={cn("flex min-w-0 h-full", isCompact ? "flex-row items-center px-2" : "flex-col gap-1 p-2.5", isOverlay && "items-start")}>
+                <div className={cn("flex-1 flex min-w-0", isCompact ? "flex-row items-baseline gap-1.5" : "flex-col gap-0.5")}>
                     <span className={cn("text-xs font-semibold leading-tight truncate", isOverlay ? "text-foreground" : "text-foreground")}>{block.task.title}</span>
-                    <span className={cn("text-[11px] font-medium leading-tight truncate", isOverlay ? "text-muted-foreground" : "text-muted-foreground/70")}>
-                        {formatTime(startHour, startMinute)} – {formatTime(endHour, endMinute)}
+                    <span className={cn("text-[11px] font-medium leading-tight truncate shrink-0", isOverlay ? "text-muted-foreground" : "text-muted-foreground/70")}>
+                        {isCompact ? (
+                            <span className="opacity-75 font-normal ml-auto text-[10px]">{formatTime(startHour, startMinute, false)} - {formatTime(endHour, endMinute, false)}</span>
+                        ) : (
+                            <>{formatTime(startHour, startMinute)} – {formatTime(endHour, endMinute)}</>
+                        )}
                     </span>
                 </div>
             </div>
