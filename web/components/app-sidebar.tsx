@@ -49,6 +49,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef } from "react";
+import { useDroppable } from "@dnd-kit/core";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -316,6 +317,14 @@ function FolderRow({ folder, href, isActive, onDeleted, onRenamed }: FolderRowPr
   const [renameValue, setRenameValue] = useState(folder.name);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const { isOver, setNodeRef, active } = useDroppable({
+    id: `folder-${folder.id}`,
+    data: { type: "folder", folderId: folder.id },
+  });
+
+  // Only highlight when a task is being dragged over this folder
+  const isDragOverWithTask = isOver && active?.data?.current?.type === "task";
+
   useEffect(() => {
     if (isRenaming) {
       inputRef.current?.focus();
@@ -407,7 +416,10 @@ function FolderRow({ folder, href, isActive, onDeleted, onRenamed }: FolderRowPr
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
-      <SidebarMenuItem>
+      <SidebarMenuItem ref={setNodeRef} className={cn(
+        "transition-all duration-150",
+        isDragOverWithTask && "ring-2 ring-primary ring-offset-1 ring-offset-background rounded-md bg-accent/30"
+      )}>
         <SidebarMenuButton asChild tooltip={folder.name} isActive={isActive}>
           <div className="flex w-full items-center gap-2">
             <DropdownMenu>

@@ -42,9 +42,70 @@ export function DashboardShell({ children }: DashboardShellProps) {
     setOverlayTask(null)
   }, [])
 
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     setOverlayTask(null)
-  }, [])
+
+    // Check if dropped on a folder
+    const overId = event.over?.id?.toString()
+    if (overId?.startsWith("folder-")) {
+      const activeData = event.active.data?.current as Record<string, unknown> | undefined
+      if (activeData?.type === "task" && activeData?.task) {
+        const task = activeData.task as Task
+        const folderId = event.over?.data?.current?.folderId as string | undefined
+
+        if (folderId && task.id) {
+          // Optimistically update the cache and call API
+          const payload = { folderId }
+
+          // Mutate all task-related caches
+          await mutate(
+            tasksKey,
+            async (current: any) => {
+              const res = await fetch(`/api/tasks/${task.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+              })
+
+              if (!res.ok) {
+                throw new Error("Failed to update task folder")
+              }
+
+              const json = await res.json().catch(() => null)
+              const updatedTask = json?.data ?? { ...task, folderId }
+
+              if (current?.data) {
+                return {
+                  ...current,
+                  data: current.data.map((t: Task) => (t.id === task.id ? updatedTask : t)),
+                }
+              }
+
+              return { data: [updatedTask] }
+            },
+            {
+              optimisticData: (current: any) => {
+                const baseList: Task[] = current?.data ?? tasks
+                const updatedList = baseList.map((t) =>
+                  t.id === task.id ? { ...t, folderId } : t
+                )
+                return current ? { ...current, data: updatedList } : { data: updatedList }
+              },
+              rollbackOnError: true,
+              revalidate: false,
+            }
+          )
+
+          // Also revalidate the specific folder's task list
+          mutate(`/api/tasks?folderId=${folderId}`)
+          // And the previous folder if task was in one
+          if (task.folderId) {
+            mutate(`/api/tasks?folderId=${task.folderId}`)
+          }
+        }
+      }
+    }
+  }, [mutate, tasks, tasksKey])
 
   const handleDragCancel = useCallback(() => {
     setOverlayTask(null)
