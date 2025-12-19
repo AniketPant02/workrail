@@ -31,13 +31,19 @@ export async function GET(req: NextRequest) {
         dueSoonParam === "1" ||
         dueSoonParam === "yes";
 
+    const statusParam = req.nextUrl.searchParams.get("status") as TaskStatus | null;
+    const excludeStatusParam = req.nextUrl.searchParams.getAll("excludeStatus") as TaskStatus[];
+
     const tasks = isDueSoon
         ? await getTasksDueSoonForUser(session.user.id, {
             folderId: folderId ?? undefined,
         })
         : folderId
             ? await getTasksByFolder(folderId, session.user.id)
-            : await getAllTasksForUser(session.user.id);
+            : await getAllTasksForUser(session.user.id, {
+                status: statusParam ?? undefined,
+                excludeStatus: excludeStatusParam.length > 0 ? excludeStatusParam : undefined,
+            });
 
     return NextResponse.json({ data: tasks }, { status: 200 });
 }

@@ -9,7 +9,8 @@ import {
   LayoutDashboard,
   Plus,
   Trash2,
-  Edit2, // NEW
+  Edit2,
+  CheckCircle2, // NEW
 } from "lucide-react";
 
 import { NavUser } from "@/components/nav-user";
@@ -90,6 +91,11 @@ const navSections = [
         title: "Due soon",
         href: "/dashboard/due-soon",
         icon: CalendarClock,
+      },
+      {
+        title: "Completed",
+        href: "/dashboard/completed",
+        icon: CheckCircle2,
       },
     ],
   },

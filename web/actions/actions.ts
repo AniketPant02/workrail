@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, gte, lte, isNotNull } from "drizzle-orm";
+import { and, eq, gte, lte, isNotNull, inArray, notInArray } from "drizzle-orm";
 import { db } from "@/db/db";
 import {
     folder,
@@ -86,11 +86,27 @@ export async function deleteFolderById(folderId: string, userId: string) {
     return row ?? null;
 }
 
-export async function getAllTasksForUser(userId: string) {
+export async function getAllTasksForUser(
+    userId: string,
+    options?: {
+        status?: TaskStatus;
+        excludeStatus?: TaskStatus[];
+    },
+) {
+    const conditions = [eq(task.userId, userId)];
+
+    if (options?.status) {
+        conditions.push(eq(task.status, options.status));
+    }
+
+    if (options?.excludeStatus && options.excludeStatus.length > 0) {
+        conditions.push(notInArray(task.status, options.excludeStatus));
+    }
+
     return db
         .select()
         .from(task)
-        .where(eq(task.userId, userId))
+        .where(and(...conditions))
         .orderBy(task.createdAt);
 }
 

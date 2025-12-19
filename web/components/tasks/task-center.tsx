@@ -19,14 +19,31 @@ export default function TaskCenter() {
   const folderId = typeof folderParam === "string" ? folderParam : Array.isArray(folderParam) ? folderParam[0] : undefined
   const isDueSoon = pathname?.startsWith("/dashboard/due-soon")
 
+  // Determine the correct API key based on the current view
   const tasksKey = useMemo(() => {
     if (!session?.user) return null
     const search = new URLSearchParams()
-    if (folderId) search.set("folderId", folderId)
-    if (isDueSoon) search.set("dueSoon", "true")
+
+    // 1. Folder View
+    if (folderId) {
+      search.set("folderId", folderId)
+    }
+    // 2. Due Soon View
+    else if (isDueSoon) {
+      search.set("dueSoon", "true")
+    }
+    // 3. Completed View
+    else if (pathname === "/dashboard/completed") {
+      search.set("status", "done")
+    }
+    // 4. Main Dashboard View (exclude completed tasks)
+    else if (pathname === "/dashboard") {
+      search.append("excludeStatus", "done")
+    }
+
     const qs = search.toString()
     return qs ? `/api/tasks?${qs}` : "/api/tasks"
-  }, [folderId, isDueSoon, session?.user])
+  }, [folderId, isDueSoon, pathname, session?.user])
 
   const { data: tasksResponse, mutate } = useSWR(tasksKey, fetcher)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
