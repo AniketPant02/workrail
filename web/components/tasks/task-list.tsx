@@ -17,6 +17,7 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { ArrowUpDown, Circle, FolderClosed, Trash2, ArrowDown, ArrowRight, ArrowUp, AlertTriangle } from "lucide-react"
+import { TaskItemSkeleton } from "@/components/ui/skeletons"
 import { cn } from "@/lib/utils"
 
 interface TaskListProps {
@@ -26,6 +27,7 @@ interface TaskListProps {
     onCreateTask: (title: string) => Promise<void> | void
     onDeleteTask: (taskId: string) => Promise<void> | void
     isCreating?: boolean
+    isLoading?: boolean
 }
 
 const priorityIcons = {
@@ -130,7 +132,7 @@ function TaskListItem({ task, selected, onSelect, onDelete, folder }: TaskListIt
                     <PriorityIcon className="h-3 w-3" />
                 </div>
 
-                <div className="flex flex-col gap-1 min-w-0 flex-1">
+                <div className="flex flex-col gap-1 min-w-0 flex-1 w-0">
                     <div className="flex items-center gap-1.5 min-w-0 pr-5">
                         <span className={cn("text-sm font-medium leading-none truncate", selected ? "text-foreground" : "text-foreground/90")}>
                             {task.title}
@@ -171,6 +173,7 @@ export default function TaskList({
     onCreateTask,
     onDeleteTask,
     isCreating,
+    isLoading,
 }: TaskListProps) {
     const [newTaskTitle, setNewTaskTitle] = useState("")
     const [sortBy, setSortBy] = useState<"priority" | "dueDate">("priority")
@@ -288,10 +291,14 @@ export default function TaskList({
 
             <ScrollArea className="flex-1 min-h-0">
                 <div
-                    className="flex flex-col min-h-full gap-2 px-5 py-4 sm:px-4 sm:py-4 cursor-default"
+                    className="flex flex-col min-h-full gap-2 px-5 py-4 sm:px-4 sm:py-4 cursor-default max-w-full"
                     onClick={() => onSelectTask(null)}
                 >
-                    {tasks.length === 0 ? (
+                    {isLoading ? (
+                        Array.from({ length: 1 }).map((_, i) => (
+                            <TaskItemSkeleton key={i} />
+                        ))
+                    ) : tasks.length === 0 ? (
                         <div className="flex items-center justify-center py-8">
                             <p className="text-center text-xs text-muted-foreground">No tasks yet</p>
                         </div>

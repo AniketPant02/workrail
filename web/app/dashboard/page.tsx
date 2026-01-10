@@ -18,9 +18,7 @@ export default function DashboardPage() {
 
   if (isPending) {
     return (
-      <main>
-        <p>Loading…</p>
-      </main>
+      <TaskCenter />
     );
   }
 

@@ -12,7 +12,7 @@ import { useDebounce } from "@/hooks/use-debounce"
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 export default function TaskCenter() {
-  const { data: session, error: sessionError } = authClient.useSession()
+  const { data: session, error: sessionError, isPending: isSessionPending } = authClient.useSession()
   const params = useParams<{ folderID?: string }>()
   const pathname = usePathname()
   const folderParam = params?.folderID
@@ -45,7 +45,9 @@ export default function TaskCenter() {
     return qs ? `/api/tasks?${qs}` : "/api/tasks"
   }, [folderId, isDueSoon, pathname, session?.user])
 
-  const { data: tasksResponse, mutate } = useSWR(tasksKey, fetcher)
+  const { data: tasksResponse, mutate, isLoading: isTasksLoading } = useSWR(tasksKey, fetcher)
+
+  const isLoading = isSessionPending || isTasksLoading
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [draftTask, setDraftTask] = useState<Task | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -82,7 +84,8 @@ export default function TaskCenter() {
   }, [debouncedTask])
 
 
-  if (!session?.user || sessionError) {
+  // Only return null if we are done loading and have no user (or error)
+  if (!isSessionPending && (!session?.user || sessionError)) {
     return null
   }
 
@@ -223,6 +226,7 @@ export default function TaskCenter() {
           onCreateTask={handleCreateTask}
           onDeleteTask={handleDeleteTaskById}
           isCreating={isCreating}
+          isLoading={isLoading}
         />
       </div>
 

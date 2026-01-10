@@ -28,7 +28,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const { data: session } = authClient.useSession()
   const { mutate } = useSWRConfig()
   const tasksKey = session?.user ? "/api/tasks" : null
-  const { data: tasksResponse } = useSWR(tasksKey, fetcher)
+  const { data: tasksResponse, isLoading: isTasksLoading } = useSWR(tasksKey, fetcher)
   const tasks: Task[] = useMemo(() => tasksResponse?.data ?? [], [tasksResponse])
   const [overlayTask, setOverlayTask] = useState<Task | null>(null)
 

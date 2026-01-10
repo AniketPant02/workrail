@@ -27,6 +27,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { SidebarFolderSkeleton } from "@/components/ui/skeletons";
 import { authClient } from "@/lib/auth-client";
 import useSWR from "swr";
 import {
@@ -262,8 +263,10 @@ export function WorkrailSidebar() {
                 </div>
               )}
               {foldersLoading && !foldersError && (
-                <div className="px-2 text-xs text-muted-foreground">
-                  Loading folders…
+                <div className="flex flex-col gap-1">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <SidebarFolderSkeleton key={i} />
+                  ))}
                 </div>
               )}
 
