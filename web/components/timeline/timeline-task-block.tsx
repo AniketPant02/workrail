@@ -34,9 +34,12 @@ interface TimelineTaskBlockProps {
     block: PositionedBlock
     rowHeight: number
     onRemove?: (task: Task) => void
+    isOverlay?: boolean
+    isGhost?: boolean
+    isMobile?: boolean
 }
 
-export function TimelineTaskBlock({ block, rowHeight, onRemove, isOverlay, isGhost }: TimelineTaskBlockProps & { isOverlay?: boolean; isGhost?: boolean }) {
+export function TimelineTaskBlock({ block, rowHeight, onRemove, isOverlay, isGhost, isMobile }: TimelineTaskBlockProps) {
     const pixelsPerMinute = rowHeight / 60
     const top = VERTICAL_PADDING + block.startMinutes * pixelsPerMinute
     const baseHeight = Math.max((block.endMinutes - block.startMinutes) * pixelsPerMinute, MIN_DURATION_MINUTES * pixelsPerMinute)
@@ -57,7 +60,7 @@ export function TimelineTaskBlock({ block, rowHeight, onRemove, isOverlay, isGho
             startMinutes: block.startMinutes,
             endMinutes: block.endMinutes,
         },
-        disabled: isOverlay || isGhost,
+        disabled: isOverlay || isGhost || isMobile,
     })
 
     const {
@@ -74,7 +77,7 @@ export function TimelineTaskBlock({ block, rowHeight, onRemove, isOverlay, isGho
             startMinutes: block.startMinutes,
             endMinutes: block.endMinutes,
         },
-        disabled: isOverlay || isGhost,
+        disabled: isOverlay || isGhost || isMobile,
     })
 
     const handleResizePointerDown: React.PointerEventHandler<HTMLDivElement> | undefined =
@@ -85,11 +88,6 @@ export function TimelineTaskBlock({ block, rowHeight, onRemove, isOverlay, isGho
             }
             : undefined
 
-    // Core Logic Fix: 
-    // If we are dragging/resizing, the parent (HourlyTimeline) updates the 'block' props 
-    // to the new snapped position/size in real-time.
-    // Therefore, we must IGNORE the dnd-kit 'transform' delta, otherwise we double-count the movement 
-    // (once via props, once via transform) causing the item to fly away or move 2x speed.
     const effectiveTransformY = (isDragging || isResizing || isOverlay || isGhost) ? 0 : (transform?.y ?? 0)
     const effectiveResizeDeltaY = (isResizing || isOverlay || isGhost) ? 0 : (resizeTransform?.y ?? 0)
 
@@ -102,11 +100,6 @@ export function TimelineTaskBlock({ block, rowHeight, onRemove, isOverlay, isGho
 
     const isCompact = (block.endMinutes - block.startMinutes) <= 30
 
-    // Style logic
-    // Overlay: The floating card. Solid, styled like a task.
-    // Ghost (or Dragging Original): The snap indicator. Dashed, faint.
-    // Standard: The task itself.
-
     const isGhostMode = isGhost || (isDragging && !isOverlay)
 
     const style = {
@@ -118,7 +111,7 @@ export function TimelineTaskBlock({ block, rowHeight, onRemove, isOverlay, isGho
 
     return (
         <div
-            ref={setNodeRef}
+            ref={!isMobile ? setNodeRef : undefined}
             style={style}
             className={cn(
                 "group rounded-md border",
@@ -135,9 +128,9 @@ export function TimelineTaskBlock({ block, rowHeight, onRemove, isOverlay, isGho
                 isResizing && "border-primary bg-primary/15 opacity-100 transition-none",
             )}
             {...attributes}
-            {...listeners}
+            {...(!isMobile ? listeners : {})}
         >
-            {!isOverlay && !isGhostMode && onRemove && (
+            {!isOverlay && !isGhostMode && !isMobile && onRemove && (
                 <button
                     type="button"
                     onPointerDown={(event) => event.stopPropagation()}
@@ -164,11 +157,11 @@ export function TimelineTaskBlock({ block, rowHeight, onRemove, isOverlay, isGho
                 </div>
             </div>
 
-            {!isOverlay && !isGhostMode && (
+            {!isOverlay && !isGhostMode && !isMobile && (
                 <div
                     ref={setResizeRef}
                     {...resizeAttributes}
-                    {...resizeListeners}
+                    {...(!isMobile ? resizeListeners : {})}
                     onPointerDown={handleResizePointerDown}
                     className="absolute left-2 right-2 bottom-0 h-1 cursor-ns-resize rounded-b-md bg-gradient-to-r from-transparent via-primary/40 to-transparent opacity-0 hover:opacity-100 transition-opacity"
                 />

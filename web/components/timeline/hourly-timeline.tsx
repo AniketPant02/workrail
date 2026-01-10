@@ -6,6 +6,7 @@ import { useDndMonitor, useDroppable, DragOverlay, type DragEndEvent } from "@dn
 import type { Task } from "@/lib/types"
 import { TimelineHeader } from "@/components/timeline/timeline-header"
 import { TimelineTaskBlock, type ScheduledBlock, type PositionedBlock } from "@/components/timeline/timeline-task-block"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 interface HourlyTimelineProps {
     tasks?: Task[]
@@ -39,8 +40,10 @@ const buildDateForMinutes = (base: Date, minutes: number) => {
 export function HourlyTimeline({ tasks = [], onTaskTimeChange, onTaskUnschedule }: HourlyTimelineProps) {
     const timelineRef = useRef<HTMLDivElement>(null)
     const firstRowRef = useRef<HTMLDivElement>(null)
+    const isMobile = useIsMobile()
     const { isOver, setNodeRef, active } = useDroppable({
         id: TIMELINE_DROP_ID,
+        disabled: isMobile,
     })
     const [rowHeight, setRowHeight] = useState(HOUR_HEIGHT)
     const [selectedDate, setSelectedDate] = useState(() => {
@@ -495,6 +498,7 @@ export function HourlyTimeline({ tasks = [], onTaskTimeChange, onTaskUnschedule 
                                         rowHeight={effectiveRowHeight}
                                         onRemove={handleUnschedule}
                                         isGhost={isDraggingThis && !activeDragState?.isResizing}
+                                        isMobile={isMobile}
                                     // If resizing, we might want to show it as real but changing size, or ghost. 
                                     // With current logic, we replace the original with the resized version. 
                                     // So it looks "real" but moves.
