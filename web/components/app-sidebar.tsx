@@ -62,21 +62,24 @@ type Folder = {
 };
 
 const folderColors = [
-  { name: "Deafult", value: "text-muted-foreground" },
-  { name: "Red", value: "text-red-500" },
-  { name: "Orange", value: "text-orange-500" },
-  { name: "Amber", value: "text-amber-500" },
-  { name: "Green", value: "text-green-500" },
-  { name: "Emerald", value: "text-emerald-500" },
-  { name: "Teal", value: "text-teal-500" },
-  { name: "Cyan", value: "text-cyan-500" },
-  { name: "Blue", value: "text-blue-500" },
-  { name: "Indigo", value: "text-indigo-500" },
-  { name: "Violet", value: "text-violet-500" },
-  { name: "Purple", value: "text-purple-500" },
-  { name: "Fuchsia", value: "text-fuchsia-500" },
-  { name: "Pink", value: "text-pink-500" },
-  { name: "Rose", value: "text-rose-500" },
+  { name: "Default", value: "text-muted-foreground", bg: "bg-muted/50" },
+  { name: "Red", value: "text-red-500", bg: "bg-red-500/10" },
+  { name: "Orange", value: "text-orange-500", bg: "bg-orange-500/10" },
+  { name: "Amber", value: "text-amber-500", bg: "bg-amber-500/10" },
+  { name: "Yellow", value: "text-yellow-500", bg: "bg-yellow-500/10" },
+  { name: "Lime", value: "text-lime-500", bg: "bg-lime-500/10" },
+  { name: "Green", value: "text-green-500", bg: "bg-green-500/10" },
+  { name: "Emerald", value: "text-emerald-500", bg: "bg-emerald-500/10" },
+  { name: "Teal", value: "text-teal-500", bg: "bg-teal-500/10" },
+  { name: "Cyan", value: "text-cyan-500", bg: "bg-cyan-500/10" },
+  { name: "Sky", value: "text-sky-500", bg: "bg-sky-500/10" },
+  { name: "Blue", value: "text-blue-500", bg: "bg-blue-500/10" },
+  { name: "Indigo", value: "text-indigo-500", bg: "bg-indigo-500/10" },
+  { name: "Violet", value: "text-violet-500", bg: "bg-violet-500/10" },
+  { name: "Purple", value: "text-purple-500", bg: "bg-purple-500/10" },
+  { name: "Fuchsia", value: "text-fuchsia-500", bg: "bg-fuchsia-500/10" },
+  { name: "Pink", value: "text-pink-500", bg: "bg-pink-500/10" },
+  { name: "Rose", value: "text-rose-500", bg: "bg-rose-500/10" },
 ];
 
 const navSections = [
@@ -236,7 +239,9 @@ export function WorkrailSidebar() {
               {isAddingFolder && (
                 <SidebarMenuItem>
                   <div className="flex h-8 w-full items-center gap-2 rounded-md bg-accent/40 px-2">
-                    <FolderClosed className="size-4 shrink-0" />
+                    <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted/50">
+                      <FolderClosed className="size-3.5 shrink-0" />
+                    </div>
                     <input
                       autoFocus
                       value={newFolderName}
@@ -398,7 +403,14 @@ function FolderRow({ folder, href, isActive, onDeleted, onRenamed }: FolderRowPr
     return (
       <SidebarMenuItem>
         <div className="flex h-8 w-full items-center gap-2 rounded-md bg-accent/40 px-2">
-          <FolderClosed className="size-4 shrink-0" />
+          <div className={cn(
+            "flex size-6 shrink-0 items-center justify-center rounded-md transition-colors",
+            folder.color
+              ? folder.color.replace('text-', 'bg-').replace('500', '500/15')
+              : "bg-muted/50"
+          )}>
+            <FolderClosed className={cn("size-3.5 shrink-0 transition-colors", folder.color || "text-muted-foreground")} />
+          </div>
           <input
             ref={inputRef}
             value={renameValue}
@@ -433,16 +445,23 @@ function FolderRow({ folder, href, isActive, onDeleted, onRenamed }: FolderRowPr
           <div className="flex w-full items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm p-1 -ml-1 -mr-1 hover:bg-sidebar-accent transition-colors">
-                  <FolderClosed className={cn("size-4 shrink-0 transition-colors", folder.color || "text-muted-foreground")} />
+                <button className="flex size-7 -ml-1.5 -mr-1 items-center justify-center rounded-lg outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-sidebar-accent transition-colors">
+                  <div className={cn(
+                    "flex size-6 shrink-0 items-center justify-center rounded-md transition-all duration-200 group-hover:scale-110",
+                    folder.color
+                      ? folder.color.replace('text-', 'bg-').replace('500', '500/15')
+                      : "bg-muted/50"
+                  )}>
+                    <FolderClosed className={cn("size-3.5 transition-colors", folder.color || "text-muted-foreground")} />
+                  </div>
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-48 p-2">
-                <div className="grid grid-cols-5 gap-1">
+              <DropdownMenuContent align="start" className="w-60 p-2">
+                <div className="grid grid-cols-6 gap-1.5">
                   {folderColors.map((color) => (
                     <DropdownMenuItem
                       key={color.value}
-                      className="p-0.5 focus:bg-transparent"
+                      className="p-0 focus:bg-transparent"
                       onClick={(e) => {
                         e.preventDefault();
                         handleColorChange(color.value);
@@ -450,12 +469,12 @@ function FolderRow({ folder, href, isActive, onDeleted, onRenamed }: FolderRowPr
                     >
                       <div
                         className={cn(
-                          "size-6 rounded-md border flex items-center justify-center cursor-pointer hover:scale-110 transition-transform",
-                          color.value === "text-muted-foreground" ? "bg-muted border-border" : "bg-card border-transparent",
+                          "group flex size-8 items-center justify-center rounded-lg border transition-all hover:scale-110 cursor-pointer",
+                          color.value === "text-muted-foreground" ? "bg-muted border-border" : cn("border-transparent", color.bg),
                         )}
                         title={color.name}
                       >
-                        <FolderClosed className={cn("size-4", color.value)} />
+                        <FolderClosed className={cn("size-4 transition-colors", color.value)} />
                       </div>
                     </DropdownMenuItem>
                   ))}
