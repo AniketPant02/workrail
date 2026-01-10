@@ -235,7 +235,7 @@ export function WorkrailSidebar() {
             <SidebarMenu>
               {isAddingFolder && (
                 <SidebarMenuItem>
-                  <div className="flex w-full items-center gap-2 rounded-md bg-accent/40 px-2 py-1.5">
+                  <div className="flex h-8 w-full items-center gap-2 rounded-md bg-accent/40 px-2">
                     <FolderClosed className="size-4 shrink-0" />
                     <input
                       autoFocus
@@ -251,7 +251,7 @@ export function WorkrailSidebar() {
                         }
                       }}
                       placeholder="New folder..."
-                      className="w-full bg-transparent text-xs outline-none"
+                      className="w-full bg-transparent text-sm outline-none"
                     />
                   </div>
                 </SidebarMenuItem>
@@ -397,7 +397,7 @@ function FolderRow({ folder, href, isActive, onDeleted, onRenamed }: FolderRowPr
   if (isRenaming) {
     return (
       <SidebarMenuItem>
-        <div className="flex w-full items-center gap-2 rounded-md bg-accent/40 px-2 py-1.5">
+        <div className="flex h-8 w-full items-center gap-2 rounded-md bg-accent/40 px-2">
           <FolderClosed className="size-4 shrink-0" />
           <input
             ref={inputRef}
@@ -433,7 +433,7 @@ function FolderRow({ folder, href, isActive, onDeleted, onRenamed }: FolderRowPr
           <div className="flex w-full items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm p-0.5 -ml-1.5 hover:bg-sidebar-accent transition-colors">
+                <button className="outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm p-1 -ml-1 -mr-1 hover:bg-sidebar-accent transition-colors">
                   <FolderClosed className={cn("size-4 shrink-0 transition-colors", folder.color || "text-muted-foreground")} />
                 </button>
               </DropdownMenuTrigger>
