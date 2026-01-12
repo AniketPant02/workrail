@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+web/db/migrations/0000_secret_doctor_spectrum.sql
+web/db/migrations/meta/_journal.json
+web/db/migrations/meta/0000_snapshot.json

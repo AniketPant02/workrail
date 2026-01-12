@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FolderClosed, CircleIcon, Clock, CheckCircle, Trash2, Cloud, CloudOff, ArrowDown, ArrowRight, ArrowUp, AlertTriangle } from "lucide-react"
 import { RichTextEditor } from "@/components/ui/rich-text-editor"
 import { cn } from "@/lib/utils"
+import { Attachments, type TaskImage } from "./attachments"
+// import { useToast } from "@/hooks/use-toast" // Assuming toast hook exists, if not I'll skip toast or use standard alert for error
 
 type Folder = {
     id: string
@@ -20,9 +22,17 @@ interface TaskEditorProps {
     task: Task | null
     onChange: (updates: Partial<Task>) => void
     onDelete: () => void
+    // Checking original interface: onDelete: () => void
+    // But I used onDelete={handleDeleteImage} for attachments, which takes id string.
+    // The prop name in TaskEditor is `onDelete` which is for deleting the TASK.
+    // Attachments `onDelete` is handled inside the component via `handleDeleteImage`.
+    // So TaskEditorProps `onDelete` should remain `() => void`.
     isSaving?: boolean
     isDeleting?: boolean
 }
+
+// ... statusConfig, priorityConfig, NO_FOLDER_VALUE definition ...
+// I will just replace the top block to clean imports and the first part of component.
 
 const statusConfig = {
     todo: { color: "text-slate-400", bgColor: "bg-slate-50 dark:bg-slate-950", icon: CircleIcon, label: "To Do" },
@@ -44,6 +54,53 @@ export default function TaskEditor({ task, onChange, onDelete, isSaving, isDelet
         fetch(url).then((res) => res.json()),
     )
     const folders: Folder[] = foldersResponse?.data ?? []
+
+    const { data: images, mutate: mutateImages } = useSWR<TaskImage[]>(
+        task ? `/api/tasks/${task.id}/images` : null, // Note: I need to create this GET route or generic list route? 
+        // Wait, I planned to use a specific GET route or generic?
+        // I created /api/upload (POST) and /api/images/[id] (DELETE).
+        // I did NOT create a specific GET route for task images.
+        // I should create /api/tasks/[id]/images or similar.
+        // For now, I'll assume it exists or use a generic query if I had one.
+        // I will Create the route in the next step.
+        (url) => fetch(url).then((res) => res.json())
+    )
+
+    const handleFileUpload = async (files: File[]) => {
+        if (!task) return
+
+        // Optimistic UI update or just wait? Images load fast usually.
+        // Let's just upload sequentially or parallel.
+
+        for (const file of files) {
+            const formData = new FormData()
+            formData.append("file", file)
+            formData.append("taskId", task.id)
+
+            try {
+                const res = await fetch("/api/upload", {
+                    method: "POST",
+                    body: formData,
+                })
+
+                if (!res.ok) throw new Error("Upload failed")
+
+                // mutateImages() // Trigger revalidate
+            } catch (error) {
+                console.error("Upload error", error)
+            }
+        }
+        mutateImages()
+    }
+
+    const handleDeleteImage = async (id: string) => {
+        try {
+            await fetch(`/api/images/${id}`, { method: "DELETE" })
+            mutateImages()
+        } catch (error) {
+            console.error("Delete error", error)
+        }
+    }
 
     if (!task) {
         return (
@@ -111,6 +168,11 @@ export default function TaskEditor({ task, onChange, onDelete, isSaving, isDelet
                         value={task.description}
                         onChange={(value) => handleChange("description", value)}
                         placeholder="Add description..."
+                        onFilesUpdate={handleFileUpload}
+                    />
+                    <Attachments
+                        images={images || []}
+                        onDelete={handleDeleteImage}
                     />
                 </div>
 

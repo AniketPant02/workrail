@@ -16,6 +16,7 @@ interface RichTextEditorProps {
   onChange: (value: string | null) => void
   placeholder?: string
   className?: string
+  onFilesUpdate?: (files: File[]) => void
 }
 
 interface ToolbarButtonProps {
@@ -50,6 +51,7 @@ export function RichTextEditor({
   onChange,
   placeholder = "Add description...",
   className,
+  onFilesUpdate,
 }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -64,15 +66,33 @@ export function RichTextEditor({
     ],
     content: value || "",
     immediatelyRender: false,
-    editorProps: {
-      attributes: {
-        class: "tiptap focus:outline-none text-sm",
-      },
-    },
     onUpdate({ editor }) {
       const html = editor.getHTML()
       const isEmpty = editor.state.doc.textContent.trim().length === 0
       onChange(isEmpty ? null : html)
+    },
+    editorProps: {
+      attributes: {
+        class: "tiptap focus:outline-none text-sm min-h-[80px]",
+      },
+      handlePaste: (view, event, slice) => {
+        if (onFilesUpdate && event.clipboardData && event.clipboardData.files.length > 0) {
+          event.preventDefault()
+          const files = Array.from(event.clipboardData.files)
+          onFilesUpdate(files)
+          return true
+        }
+        return false
+      },
+      handleDrop: (view, event, slice, moved) => {
+        if (onFilesUpdate && event.dataTransfer && event.dataTransfer.files.length > 0) {
+          event.preventDefault()
+          const files = Array.from(event.dataTransfer.files)
+          onFilesUpdate(files)
+          return true
+        }
+        return false
+      },
     },
   })
 

@@ -157,6 +157,32 @@ export const task = pgTable(
   ],
 );
 
+export const taskImage = pgTable(
+  "task_image",
+  {
+    id: text("id").primaryKey(),
+    key: text("key").notNull(), // S3 key
+    url: text("url").notNull(), // Public URL
+    name: text("name").notNull(), // Original filename
+    size: integer("size").notNull(),
+    mimeType: text("mime_type").notNull(),
+
+    taskId: text("task_id")
+      .notNull()
+      .references(() => task.id, { onDelete: "cascade" }),
+
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("task_image_taskId_idx").on(table.taskId),
+    index("task_image_userId_idx").on(table.userId),
+  ],
+);
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
@@ -186,7 +212,7 @@ export const folderRelations = relations(folder, ({ one, many }) => ({
   tasks: many(task),
 }));
 
-export const taskRelations = relations(task, ({ one }) => ({
+export const taskRelations = relations(task, ({ one, many }) => ({
   user: one(user, {
     fields: [task.userId],
     references: [user.id],
@@ -194,5 +220,17 @@ export const taskRelations = relations(task, ({ one }) => ({
   folder: one(folder, {
     fields: [task.folderId],
     references: [folder.id],
+  }),
+  images: many(taskImage),
+}));
+
+export const taskImageRelations = relations(taskImage, ({ one }) => ({
+  task: one(task, {
+    fields: [taskImage.taskId],
+    references: [task.id],
+  }),
+  user: one(user, {
+    fields: [taskImage.userId],
+    references: [user.id],
   }),
 }));
