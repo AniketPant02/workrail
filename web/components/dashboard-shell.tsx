@@ -19,6 +19,7 @@ import { authClient } from "@/lib/auth-client"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Focus } from "lucide-react"
+import { NewFeaturesModal } from "@/components/new-features-modal"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -259,6 +260,17 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 />
               </aside>
             </div>
+            <NewFeaturesModal
+              featureId="images-update"
+              title="Image update"
+              description="Improvements to workrail continue. Here's what's new:"
+              features={[
+                "Image upload for task attachments",
+                "Various UI fixes for better usability",
+                "Mobile timeline view",
+              ]}
+              image="/logo.svg"
+            />
           </div>
         </SidebarInset>
       </DndContext>
