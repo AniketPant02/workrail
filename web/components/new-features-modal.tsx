@@ -60,7 +60,7 @@ export function NewFeaturesModal({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[400px] overflow-hidden p-0 gap-0 border-none shadow-xl">
         {image && (
-          <div className="w-full aspect-[2/1] relative overflow-hidden bg-muted">
+          <div className="w-full aspect-[2/1] relative overflow-hidden bg-white">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={image}
