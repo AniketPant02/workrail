@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react"
 import Image from "next/image"
-import { X, Download, Trash2, ChevronLeft, ChevronRight, Maximize2 } from "lucide-react"
+import { X, Download, Trash2, ChevronLeft, ChevronRight, Maximize2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -18,10 +18,12 @@ export type TaskImage = {
 interface AttachmentsProps {
     images: TaskImage[]
     onDelete: (id: string) => Promise<void>
+    isUploading?: boolean
 }
 
-export function Attachments({ images, onDelete }: AttachmentsProps) {
+export function Attachments({ images, onDelete, isUploading = false }: AttachmentsProps) {
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
+    const [deletingId, setDeletingId] = useState<string | null>(null)
 
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if (selectedIndex === null) return
@@ -40,14 +42,14 @@ export function Attachments({ images, onDelete }: AttachmentsProps) {
         return () => window.removeEventListener("keydown", handleKeyDown)
     }, [handleKeyDown])
 
-    if (images.length === 0) return null
+    if (images.length === 0 && !isUploading) return null
 
     const selectedImage = selectedIndex !== null ? images[selectedIndex] : null
 
     return (
         <div className="space-y-3 pt-2">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-tight">Attachments</label>
-            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {images.map((image, index) => (
                     <div
                         key={image.id}
@@ -58,41 +60,67 @@ export function Attachments({ images, onDelete }: AttachmentsProps) {
                             src={image.url}
                             alt={image.name}
                             fill
-                            className="object-cover transition-transform group-hover:scale-105"
+                            className={cn(
+                                "object-cover transition-transform group-hover:scale-105",
+                                deletingId === image.id && "opacity-50"
+                            )}
                             sizes="(max-width: 768px) 50vw, 33vw"
                             unoptimized
                         />
+
+                        {/* Deleting Spinner */}
+                        {deletingId === image.id && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-background/20 backdrop-blur-sm">
+                                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                            </div>
+                        )}
+
                         {/* Hover Overlay with Actions */}
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100 gap-2">
-                            <Button
-                                variant="secondary"
-                                size="icon"
-                                className="h-6 w-6 rounded-full bg-white/90 hover:bg-white text-black shadow-sm"
-                                onClick={(e) => {
-                                    e.stopPropagation()
-                                    window.open(image.url, "_blank")
-                                }}
-                                title="Download"
-                            >
-                                <Download className="h-3 w-3" />
-                            </Button>
-                            <Button
-                                variant="destructive"
-                                size="icon"
-                                className="h-6 w-6 rounded-full shadow-sm"
-                                onClick={async (e) => {
-                                    e.stopPropagation()
-                                    if (confirm("Are you sure you want to delete this image?")) {
-                                        await onDelete(image.id)
-                                    }
-                                }}
-                                title="Delete"
-                            >
-                                <Trash2 className="h-3 w-3" />
-                            </Button>
-                        </div>
+                        {deletingId !== image.id && (
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100 gap-2">
+                                <Button
+                                    variant="secondary"
+                                    size="icon"
+                                    className="h-6 w-6 rounded-full bg-white/90 hover:bg-white text-black shadow-sm"
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        window.open(image.url, "_blank")
+                                    }}
+                                    title="Download"
+                                >
+                                    <Download className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                    variant="destructive"
+                                    size="icon"
+                                    className="h-6 w-6 rounded-full shadow-sm"
+                                    onClick={async (e) => {
+                                        e.stopPropagation()
+                                        if (confirm("Are you sure you want to delete this image?")) {
+                                            setDeletingId(image.id)
+                                            try {
+                                                await onDelete(image.id)
+                                            } finally {
+                                                setDeletingId(null)
+                                            }
+                                        }
+                                    }}
+                                    title="Delete"
+                                >
+                                    <Trash2 className="h-3 w-3" />
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 ))}
+
+                {/* Loading State for Uploading */}
+                {isUploading && (
+                    <div className="aspect-video rounded-md border border-dashed bg-muted/30 flex flex-col items-center justify-center gap-2 animate-pulse">
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Uploading...</span>
+                    </div>
+                )}
             </div>
 
             {/* Lightbox */}

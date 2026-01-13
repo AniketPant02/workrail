@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import useSWR from "swr"
 
 import type { Task } from "@/lib/types"
@@ -60,8 +61,14 @@ export default function TaskEditor({ task, onChange, onDelete, isSaving, isDelet
         (url: string) => fetch(url).then((res) => res.json())
     )
 
+    const [isUploading, setIsUploading] = useState(false)
+
     const handleFileUpload = async (files: File[]) => {
         if (!task) return
+        setIsUploading(true)
+        // Optimistic UI update or just wait? Images load fast usually.
+        // Let's just upload sequentially or parallel.
+
         for (const file of files) {
             const formData = new FormData()
             formData.append("file", file)
@@ -75,11 +82,13 @@ export default function TaskEditor({ task, onChange, onDelete, isSaving, isDelet
 
                 if (!res.ok) throw new Error("Upload failed")
 
-                mutateImages()
+                // mutateImages() // Trigger revalidate
             } catch (error) {
                 console.error("Upload error", error)
             }
         }
+        await mutateImages()
+        setIsUploading(false)
     }
 
     const handleDeleteImage = async (id: string) => {
@@ -115,6 +124,7 @@ export default function TaskEditor({ task, onChange, onDelete, isSaving, isDelet
 
     return (
         <div className="flex flex-col h-full min-h-0 bg-background">
+            {/* Header ... */}
             <div className="border-b border-border/50 px-4 py-2 flex items-center justify-between h-10">
                 <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Details</h2>
                 <div className="flex items-center gap-2">
@@ -162,6 +172,7 @@ export default function TaskEditor({ task, onChange, onDelete, isSaving, isDelet
                     <Attachments
                         images={images || []}
                         onDelete={handleDeleteImage}
+                        isUploading={isUploading}
                     />
                 </div>
 
