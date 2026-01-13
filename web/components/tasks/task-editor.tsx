@@ -11,7 +11,7 @@ import { FolderClosed, CircleIcon, Clock, CheckCircle, Trash2, Cloud, CloudOff, 
 import { RichTextEditor } from "@/components/ui/rich-text-editor"
 import { cn } from "@/lib/utils"
 import { Attachments, type TaskImage } from "./attachments"
-// import { useToast } from "@/hooks/use-toast" // Assuming toast hook exists, if not I'll skip toast or use standard alert for error
+import { toast } from "sonner"
 
 type Folder = {
     id: string
@@ -70,6 +70,12 @@ export default function TaskEditor({ task, onChange, onDelete, isSaving, isDelet
         // Let's just upload sequentially or parallel.
 
         for (const file of files) {
+            // Check if file is an image
+            if (!file.type.startsWith("image/")) {
+                toast.error("File type not supported. Please upload an image.")
+                continue
+            }
+
             const formData = new FormData()
             formData.append("file", file)
             formData.append("taskId", task.id)
@@ -85,6 +91,7 @@ export default function TaskEditor({ task, onChange, onDelete, isSaving, isDelet
                 // mutateImages() // Trigger revalidate
             } catch (error) {
                 console.error("Upload error", error)
+                toast.error("Failed to upload image")
             }
         }
         await mutateImages()
