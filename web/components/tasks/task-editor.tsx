@@ -56,22 +56,12 @@ export default function TaskEditor({ task, onChange, onDelete, isSaving, isDelet
     const folders: Folder[] = foldersResponse?.data ?? []
 
     const { data: images, mutate: mutateImages } = useSWR<TaskImage[]>(
-        task ? `/api/tasks/${task.id}/images` : null, // Note: I need to create this GET route or generic list route? 
-        // Wait, I planned to use a specific GET route or generic?
-        // I created /api/upload (POST) and /api/images/[id] (DELETE).
-        // I did NOT create a specific GET route for task images.
-        // I should create /api/tasks/[id]/images or similar.
-        // For now, I'll assume it exists or use a generic query if I had one.
-        // I will Create the route in the next step.
-        (url) => fetch(url).then((res) => res.json())
+        task ? `/api/tasks/${task.id}/images` : null,
+        (url: string) => fetch(url).then((res) => res.json())
     )
 
     const handleFileUpload = async (files: File[]) => {
         if (!task) return
-
-        // Optimistic UI update or just wait? Images load fast usually.
-        // Let's just upload sequentially or parallel.
-
         for (const file of files) {
             const formData = new FormData()
             formData.append("file", file)
@@ -85,12 +75,11 @@ export default function TaskEditor({ task, onChange, onDelete, isSaving, isDelet
 
                 if (!res.ok) throw new Error("Upload failed")
 
-                // mutateImages() // Trigger revalidate
+                mutateImages()
             } catch (error) {
                 console.error("Upload error", error)
             }
         }
-        mutateImages()
     }
 
     const handleDeleteImage = async (id: string) => {
